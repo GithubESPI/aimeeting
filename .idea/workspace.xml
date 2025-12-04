@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="7ad4d2f6-78bd-4646-9fb4-7c05ab965b48" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/app/(auth)/signin/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/admin/cleanup-meetings/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/admin/meetings/sync-all-meetings/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/admin/meetings/sync/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/auth/[...nextauth]/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/debug/verify-transcripts/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/graph/me/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/graph/transcripts/content/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/graph/transcripts/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/[id]/debug-transcript/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/[id]/export-pdf/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/[id]/import-transcript/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/[id]/summarize/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/[id]/summary/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/[id]/transcript/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/teams/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/uploadthing/core.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/api/uploadthing/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/dashboard/dashboard-client.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/dashboard/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/email.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/[id]/meeting-summary-client.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/[id]/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/new/new-meeting-form.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/new/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/teams/TeamsMeetingsClient.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/teams/page.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/teams/teams-selector.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/providers.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/check-org.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/LightRays.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/Navbar.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/RecordingUpload.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/SyncTeamsButton.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/admin/AdminSyncButton.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/meetings/client-summary.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/meetings/generate-summary-button.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/components/meetings/import-transcript-button.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/auth.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/authOptions.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/adminTranscripts.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/appClient.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/appToken.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/fetchTranscript.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/syncAdminMeetings.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/syncAllMeetings.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/syncTeamsMeetings.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/transcripts.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/verifyMeetings.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/graph/vtt-parser.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/openai.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/pdf/generateMeetingPdf.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/prisma.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/roles.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/lib/summarize-meeting.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/public/logo.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/public/logo_blanc.png" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/test-openai.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/types/next-auth.d.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="ProjectErrors" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 8
+}</component>
+  <component name="ProjectId" id="35hO9JvnKNIaED2cZGZ5tZiJlhn" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;js.debugger.nextJs.config.created.client&quot;: &quot;true&quot;,
+    &quot;js.debugger.nextJs.config.created.server&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/AndyVESPUCE/Desktop/nextmeetai/public&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.grazie&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\AndyVESPUCE\\Desktop\\nextmeetai\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="C:\Users\AndyVESPUCE\Desktop\nextmeetai\public" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="C:\Users\AndyVESPUCE\Desktop\nextmeetai\public" />
+      <recent name="C:\Users\AndyVESPUCE\Desktop\nextmeetai" />
+      <recent name="C:\Users\AndyVESPUCE\Desktop\nextmeetai\prisma" />
+    </key>
+  </component>
+  <component name="RunManager" selected="npm.Next.js: server-side">
+    <configuration name="Next.js: debug client-side" type="JavascriptDebugType" uri="http://localhost:3000/">
+      <method v="2" />
+    </configuration>
+    <configuration name="Next.js: server-side" type="js.build_tools.npm">
+      <package-json value="$PROJECT_DIR$/package.json" />
+      <command value="run" />
+      <scripts>
+        <script value="dev" />
+      </scripts>
+      <node-interpreter value="project" />
+      <envs />
+      <method v="2" />
+    </configuration>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-6a121458b545-JavaScript-WS-251.25410.117" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="7ad4d2f6-78bd-4646-9fb4-7c05ab965b48" name="Changes" comment="" />
+      <created>1763558683448</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1763558683448</updated>
+      <workItem from="1763558684512" duration="179000" />
+      <workItem from="1763558943958" duration="16093000" />
+      <workItem from="1763643381028" duration="17295000" />
+      <workItem from="1763890712800" duration="21127000" />
+      <workItem from="1764063222399" duration="28780000" />
+      <workItem from="1764158694174" duration="95000" />
+      <workItem from="1764160099015" duration="4900000" />
+      <workItem from="1764168049354" duration="1412000" />
+      <workItem from="1764169789338" duration="28093000" />
+      <workItem from="1764258925726" duration="384000" />
+      <workItem from="1764259510414" duration="4535000" />
+      <workItem from="1764509415357" duration="42512000" />
+      <workItem from="1764766458467" duration="23976000" />
+      <workItem from="1764847796036" duration="2349000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/lib/graph/fetchTranscript.ts</url>
+          <option name="timeStamp" value="12" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/app/api/meetings/[id]/export-pdf/route.ts</url>
+          <line>442</line>
+          <option name="timeStamp" value="15" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/app/api/meetings/[id]/export-pdf/route.ts</url>
+          <line>636</line>
+          <option name="timeStamp" value="16" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
