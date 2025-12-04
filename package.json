@@ -31,11 +31,9 @@
     "dotenv": "^17.2.3",
     "jwt-decode": "^4.0.0",
     "lucide-react": "^0.554.0",
-
     "next": "14.2.15",
     "react": "18.3.1",
     "react-dom": "18.3.1",
-
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "ogl": "^1.0.11",
@@ -50,10 +48,8 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
-
     "@types/react": "^18",
     "@types/react-dom": "^18",
-
     "baseline-browser-mapping": "^2.9.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "14.2.15",
