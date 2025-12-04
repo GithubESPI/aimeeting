@@ -730,8 +730,9 @@ export async function POST(
     // 3️⃣ Construire la liste des destinataires (participants + organisateur)
     const participantEmails =
         meeting.attendees
-            ?.map((a) => a.participant?.email)
+            ?.map((a: any) => a?.participant?.email)
             .filter((e): e is string => Boolean(e)) ?? [];
+
 
     const extraEmails: string[] = [];
     if (meeting.organizerEmail) extraEmails.push(meeting.organizerEmail);
