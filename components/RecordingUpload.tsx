@@ -1,14 +1,16 @@
-// components/RecordingUpload.tsx
 "use client";
 
 import { UploadButton } from "@uploadthing/react";
 import type { OurFileRouter } from "@/app/api/uploadthing/core";
 
-type Props = {
-    onUploadedAction: (url: string) => void; // 👈 renommé
+type RecordingUploadProps = {
+    onUploadedAction: (url: string) => void;
 };
 
-export default function RecordingUpload({ onUploadedAction }: Props) {
+export default function RecordingUpload(props: any) {
+    // On récupère le typage fort en interne
+    const { onUploadedAction } = props as RecordingUploadProps;
+
     return (
         <div className="inline-flex flex-col gap-2">
             <UploadButton<OurFileRouter, "meetingRecording">
@@ -16,7 +18,7 @@ export default function RecordingUpload({ onUploadedAction }: Props) {
                 onClientUploadComplete={(res) => {
                     const url = res?.[0]?.url;
                     if (url) {
-                        onUploadedAction(url); // 👈 utilise le nouveau nom
+                        onUploadedAction(url);
                     }
                 }}
                 onUploadError={(err) => {

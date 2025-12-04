@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "pdf-lib";
 import fs from "fs/promises";
 import path from "path";
-import { Prisma } from "@prisma/client";
-import {sendMeetingReportEmail} from "@/app/email";
 import {getServerSession} from "next-auth";
 import { authOptions } from "@/lib/authOptions";
 
