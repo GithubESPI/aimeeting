@@ -1,7 +1,20 @@
 // lib/summarize-meeting.ts
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+let openaiClient: OpenAI | null = null;
+
+// 🔹 On n'instancie OpenAI qu'au moment où on en a besoin, pas au chargement du module
+function getOpenAIClient() {
+    if (!openaiClient) {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            // Cette erreur sera catchée dans ta route API
+            throw new Error("OPENAI_API_KEY is not set in environment");
+        }
+        openaiClient = new OpenAI({ apiKey });
+    }
+    return openaiClient;
+}
 
 type ActionItem = { tache: string; owner: string; deadline: string | null };
 
@@ -13,14 +26,13 @@ export type SummaryShape = {
     resume: string;
     compte_rendu_etendu?: string;
     contenu_detaille?: string;
-    compteRendu?: string;              // 👈 AJOUT
+    compteRendu?: string;
     points_cles?: string[];
     risques_ou_blocages?: string[];
     decisions: string[];
     actions: ActionItem[];
     meta?: { exclusions?: string[] };
 };
-
 
 // -------------------- Config anti-429 --------------------
 const MODEL_PRIMARY = "gpt-4o-mini"; // model pas cher / léger
@@ -93,7 +105,9 @@ function parseSummaryJSON(content: string, fallbackTitle: string): SummaryShape 
         const raw = JSON.parse(content);
         const asStr = (v: unknown) => (typeof v === "string" ? v : "");
         const asArr = (v: unknown) =>
-            Array.isArray(v) ? (v.filter((x) => typeof x === "string") as string[]) : [];
+            Array.isArray(v)
+                ? (v.filter((x) => typeof x === "string") as string[])
+                : [];
         const asActions = (v: unknown): ActionItem[] =>
             Array.isArray(v)
                 ? v.map((a) => {
@@ -107,7 +121,8 @@ function parseSummaryJSON(content: string, fallbackTitle: string): SummaryShape 
                 })
                 : [];
 
-        const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+        const obj =
+            raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
 
         const s: SummaryShape = {
             titre: asStr(obj["titre"]) || fallbackTitle || "Compte rendu",
@@ -116,20 +131,22 @@ function parseSummaryJSON(content: string, fallbackTitle: string): SummaryShape 
             participants: asArr(obj["participants"]),
             resume: asStr(obj["resume"]),
             compte_rendu_etendu: asStr(obj["compte_rendu_etendu"]),
-            contenu_detaille: asStr(obj["contenu_detaille"]),   // <--- AJOUT
+            contenu_detaille: asStr(obj["contenu_detaille"]),
             compteRendu: asStr(obj["compteRendu"]),
             points_cles: asArr(obj["points_cles"]),
             risques_ou_blocages: asArr(obj["risques_ou_blocages"]),
             decisions: asArr(obj["decisions"]),
             actions: asActions(obj["actions"]),
-            meta: obj["meta"] && typeof obj["meta"] === "object"
-                ? { exclusions: asArr((obj["meta"] as any)["exclusions"]) }
-                : { exclusions: [] },
+            meta:
+                obj["meta"] && typeof obj["meta"] === "object"
+                    ? { exclusions: asArr((obj["meta"] as any)["exclusions"]) }
+                    : { exclusions: [] },
         };
 
-
-        if (s.compte_rendu_etendu && !s.compteRendu) s.compteRendu = s.compte_rendu_etendu;
-        if (s.compteRendu && !s.compte_rendu_etendu) s.compte_rendu_etendu = s.compteRendu;
+        if (s.compte_rendu_etendu && !s.compteRendu)
+            s.compteRendu = s.compte_rendu_etendu;
+        if (s.compteRendu && !s.compte_rendu_etendu)
+            s.compte_rendu_etendu = s.compteRendu;
 
         return s;
     } catch {
@@ -141,15 +158,14 @@ function parseSummaryJSON(content: string, fallbackTitle: string): SummaryShape 
             resume: "",
             decisions: [],
             actions: [],
-            compteRendu: "",                 // 👈
+            compteRendu: "",
             compte_rendu_etendu: "",
-            contenu_detaille: "",            // 👈 optionnel, mais propre
+            contenu_detaille: "",
             points_cles: [],
             risques_ou_blocages: [],
             meta: { exclusions: [] },
         };
     }
-
 }
 
 const countWords = (s: string) =>
@@ -165,6 +181,8 @@ Retourne STRICTEMENT ce JSON: {
   "actions": [ { "tache": string, "owner": string, "deadline": string | null } ]
 }`;
     const user = `MORCEAU:\n"""${chunk}"""`;
+
+    const openai = getOpenAIClient();
 
     const r = await openai.chat.completions.create({
         model: MODEL_PRIMARY,
@@ -213,7 +231,6 @@ Contraintes :
   "meta": { "exclusions": string[] }
 }`;
 
-
     const packed = chunksData
         .map(
             (c, i) => `#CHUNK ${i + 1}
@@ -223,12 +240,14 @@ Points clés: ${c.points_cles.join(" | ")}
 Décisions: ${c.decisions.join(" | ")}
 Actions: ${c.actions
                 .map((a) => `${a.tache} @${a.owner} ${a.deadline ?? ""}`)
-                .join(" | ")}
-`
+                .join(" | ")}`
         )
         .join("\n\n");
 
     const user = `Titre suggéré: ${title || "Compte rendu"}\n\nSOURCES:\n${packed}`;
+
+    const openai = getOpenAIClient();
+
     const r = await openai.chat.completions.create({
         model: MODEL_PRIMARY,
         temperature: 0.2,
@@ -285,6 +304,8 @@ Tu allonges ce compte-rendu **sans inventer**. Reste entre ${minWords}-${maxWord
 Style narratif professionnel, paragraphes complets, pas de listes.`;
         const expandUser = `TEXTE:\n"""${base}"""`;
 
+        const openai = getOpenAIClient();
+
         const r = await openai.chat.completions.create({
             model: MODEL_PRIMARY,
             temperature: 0.2,
@@ -294,7 +315,9 @@ Style narratif professionnel, paragraphes complets, pas de listes.`;
             ],
         });
 
-        const ext = redactSensitive((r.choices[0]?.message?.content || "").trim());
+        const ext = redactSensitive(
+            (r.choices[0]?.message?.content || "").trim()
+        );
         if (ext) {
             finalSummary.compte_rendu_etendu = ext;
             finalSummary.compteRendu = ext;
@@ -306,7 +329,9 @@ Style narratif professionnel, paragraphes complets, pas de listes.`;
         const expandSystemDetail = `
 Tu réécris ce compte-rendu détaillé en 4–8 paragraphes, style professionnel,
 sans inventer d'informations, avec précision chronologique.`;
-        const expandUserDetail = `TEXTE:\n"""${base}"""`;
+        const expandUserDetail = `TEXTE:\n"""${finalSummary.compte_rendu_etendu || base}"""`;
+
+        const openai = getOpenAIClient();
 
         const r2 = await openai.chat.completions.create({
             model: MODEL_PRIMARY,
@@ -317,7 +342,9 @@ sans inventer d'informations, avec précision chronologique.`;
             ],
         });
 
-        const ext2 = redactSensitive((r2.choices[0]?.message?.content || "").trim());
+        const ext2 = redactSensitive(
+            (r2.choices[0]?.message?.content || "").trim()
+        );
         if (ext2) {
             finalSummary.contenu_detaille = ext2;
         }
