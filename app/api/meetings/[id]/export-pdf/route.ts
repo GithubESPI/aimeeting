@@ -3,9 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { PDFDocument, StandardFonts, rgb, PDFPage, PDFFont } from "pdf-lib";
 import fs from "fs/promises";
 import path from "path";
-import {getServerSession} from "next-auth";
+import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-
 
 // (optionnel mais recommandé, comme tu utilises fs / pdf-lib)
 export const runtime = "nodejs";
@@ -171,7 +170,7 @@ function drawInfoCard(ctx: PDFContext, rows: InfoRow[]) {
 
     let currentY = ctx.y - paddingY - 2;
 
-    rows.forEach((row) => {
+    rows.forEach((row: InfoRow) => {
         page.drawText(row.label, {
             x: x + paddingX,
             y: currentY,
@@ -272,6 +271,8 @@ function ensureSpaceForDetail(ctx: PDFContext, needed: number) {
 
 // ---------- Cartes : listes à puces ----------
 
+type BulletLine = { text: string; firstOfBullet: boolean };
+
 function drawBulletedCard(ctx: PDFContext, items: string[]) {
     const fontRegular = ctx.fontRegular;
     const fontSize = 10;
@@ -281,7 +282,6 @@ function drawBulletedCard(ctx: PDFContext, items: string[]) {
     const paddingX = 16;
     const paddingY = 14;
 
-    type BulletLine = { text: string; firstOfBullet: boolean };
     const bulletLines: BulletLine[] = [];
 
     for (const item of items) {
@@ -307,7 +307,7 @@ function drawBulletedCard(ctx: PDFContext, items: string[]) {
 
     if (bulletLines.length === 0) return;
 
-    const effectiveLines = bulletLines.filter((l) => l.text !== "").length;
+    const effectiveLines = bulletLines.filter((l: BulletLine) => l.text !== "").length;
     const extraBlank = bulletLines.length - effectiveLines;
     const totalLines = effectiveLines + extraBlank;
 
@@ -331,7 +331,7 @@ function drawBulletedCard(ctx: PDFContext, items: string[]) {
     ctx.page.drawRectangle({
         x,
         y: bottomY,
-        width: 4,
+        width,
         height,
         color: colorBlue,
     });
@@ -442,7 +442,7 @@ function drawFooters(pdf: PDFDocument, font: PDFFont) {
     const pages = pdf.getPages();
     const total = pages.length;
 
-    pages.forEach((page, idx) => {
+    pages.forEach((page: PDFPage, idx: number) => {
         const size = 8;
         const y = 35;
 
@@ -604,7 +604,7 @@ async function generateMeetingPdf(meeting: any, summary: any): Promise<Uint8Arra
     if (hasActions) {
         ensureSpaceForDetail(ctx, 80);
         drawSectionTitle(ctx, "Tâches à réaliser");
-        const items = (summary.actions as any[]).map((a) => {
+        const items = (summary.actions as any[]).map((a: any) => {
             const who = a.owner ? ` — ${a.owner}` : "";
             const dl = a.deadline ? ` (échéance : ${a.deadline})` : "";
             return `${a.tache || "Tâche"}${who}${dl}`;
@@ -655,7 +655,6 @@ export async function GET(
         );
     }
 
-
     const summary = meeting.summaryJson as any;
 
     const pdfBytes = await generateMeetingPdf(meeting, summary);
@@ -668,8 +667,6 @@ export async function GET(
         },
     });
 }
-
-// ---------- POST : envoi du PDF par mail à tous les participants ----------
 
 // ---------- POST : envoi du PDF par mail via Microsoft Graph ----------
 
@@ -729,10 +726,9 @@ export async function POST(
 
     // 3️⃣ Construire la liste des destinataires (participants + organisateur)
     const participantEmails =
-        meeting.attendees
+        meeting?.attendees
             ?.map((a: any) => a?.participant?.email)
-            .filter((e): e is string => Boolean(e)) ?? [];
-
+            .filter((e: any): e is string => Boolean(e)) ?? [];
 
     const extraEmails: string[] = [];
     if (meeting.organizerEmail) extraEmails.push(meeting.organizerEmail);
