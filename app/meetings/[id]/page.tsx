@@ -31,6 +31,11 @@ type Participant = {
     email?: string | null;
 };
 
+type ParticipantFromDb = {
+    id: string;
+    displayName: string | null;
+    email: string | null;
+};
 
 /* ------- Helpers UI ------- */
 
@@ -76,27 +81,20 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 /* --- Helper pour nettoyer le VTT Teams --- */
-// ⚠️ NE PAS exporter cette fonction
 function cleanTeamsTranscript(vtt: string): string {
     return vtt
-        // 0. Enlever explicitement "WEBVTT" et les lignes vides juste après
         .replace(/^WEBVTT.*\n?/i, "")
-        // 1. Enlever les timestamps
         .replace(/\d{2}:\d{2}:\d{2}\.\d{3} --> .*$/gm, "")
-        // 2. Transformer <v Speaker>Texte</v> → "Speaker : Texte"
         .replace(
             /<v\s+([^>]+)>([\s\S]*?)<\/v>/gm,
             (_match: string, speaker: string, text: string) => {
                 return `${speaker.trim()} : ${text.trim()}`;
             }
         )
-        // 3. Retirer balises résiduelles <v> ou HTML
         .replace(/<v[^>]*>/g, "")
         .replace(/<\/v>/g, "")
         .replace(/<\/?[^>]+>/g, "")
-        // 4. Nettoyer espaces inutiles
         .replace(/\n{2,}/g, "\n")
-        // 5. Trim final
         .trim();
 }
 
@@ -106,7 +104,6 @@ async function ensureFullTranscript(
     meeting: any,
     session: any
 ): Promise<string | null> {
-    // 1) Si déjà présent → on renvoie direct
     if (
         typeof meeting.fullTranscript === "string" &&
         meeting.fullTranscript.trim() !== ""
@@ -114,13 +111,11 @@ async function ensureFullTranscript(
         return meeting.fullTranscript;
     }
 
-    // 2) Si pas de transcriptRaw → on ne peut rien faire
     if (!meeting.transcriptRaw) {
         console.warn("[ensureFullTranscript] pas de transcriptRaw en BDD");
         return null;
     }
 
-    // 3) On parse transcriptRaw (le JSON brut Graph)
     let raw: any;
     try {
         raw =
@@ -145,7 +140,6 @@ async function ensureFullTranscript(
         return null;
     }
 
-    // 4) On utilise de la session
     const accessToken = (session as any).accessToken as string | undefined;
     if (!accessToken) {
         console.warn(
@@ -172,11 +166,8 @@ async function ensureFullTranscript(
         }
 
         const vtt = await res.text();
-
-        // 🔹 Nettoyage VTT → texte
         const cleaned = cleanTeamsTranscript(vtt);
 
-        // 5) On sauvegarde en BDD pour les prochaines fois
         await prisma.meeting.update({
             where: { id: meeting.id },
             data: { fullTranscript: cleaned },
@@ -192,7 +183,7 @@ async function ensureFullTranscript(
 /* ------- Page ------- */
 
 export default async function MeetingDetailPage({ params }: PageProps) {
-    const { id } = params; // ⬅️ plus de `await params`, ce n’est pas une Promise
+    const { id } = params;
 
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
@@ -223,20 +214,21 @@ export default async function MeetingDetailPage({ params }: PageProps) {
     const end = meeting.endDateTime ?? null;
     const durationMinutes = end ? differenceInMinutes(end, start) : null;
 
-    const participantList =
-        meeting.attendees
-            ?.map((a: { participant: any }) => a.participant)
-            .filter((p: any): p is { id: string; displayName: string | null; email: string | null } =>
-                Boolean(p)
+    const participantList: ParticipantFromDb[] =
+        (meeting.attendees ?? [])
+            .map(
+                (a: { participant: ParticipantFromDb | null }) => a.participant
+            )
+            .filter(
+                (p: ParticipantFromDb | null): p is ParticipantFromDb => Boolean(p)
             ) ?? [];
-
 
     const participantsFromDb =
         participantList
             .map((p: Participant) => p.displayName || p.email)
-            .filter((v): v is string => Boolean(v));
-
-
+            .filter(
+                (v: string | null | undefined): v is string => Boolean(v)
+            );
 
     const hasSummary = Boolean(meeting.summaryJson);
 
@@ -388,9 +380,9 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                             className="flex items-center justify-between rounded-md bg-dark-200 px-3 py-2"
                                         >
                                             <div className="flex flex-col">
-                        <span className="text-sm">
-                          {p.displayName || p.email}
-                        </span>
+                                                <span className="text-sm">
+                                                  {p.displayName || p.email}
+                                                </span>
                                                 <span className="text-xs text-light-200">
                           {p.email}
                         </span>

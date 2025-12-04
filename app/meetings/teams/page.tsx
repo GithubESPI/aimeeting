@@ -7,7 +7,6 @@ import { redirect } from "next/navigation";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
-import { AdminSyncButton } from "@/components/admin/AdminSyncButton";
 
 export default async function TeamsMeetingsPage() {
     const session = await getServerSession(authOptions);
@@ -55,7 +54,7 @@ export default async function TeamsMeetingsPage() {
     });
 
     const total = meetings.length;
-    const summarized = meetings.filter((m) => m.status === "summarized").length;
+    const summarized = meetings.filter((m: any) => m.status === "summarized").length;
 
     return (
         <section className="space-y-6">
@@ -99,7 +98,7 @@ export default async function TeamsMeetingsPage() {
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">
-                    {meetings.map((m) => {
+                    {meetings.map((m: any) => {
                         const dateLabel = m.startDateTime
                             ? format(m.startDateTime, "EEEE d MMMM yyyy · HH:mm", {
                                 locale: fr,

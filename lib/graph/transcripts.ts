@@ -1,9 +1,8 @@
 // lib/graph/transcripts.ts
 import { Client } from "@microsoft/microsoft-graph-client";
-import {Meeting} from "@prisma/client";
-import {Session} from "next-auth";
-import {getGraphAppClient} from "@/lib/graph/appClient";
-import {prisma} from "@/lib/prisma";
+import type { Session } from "next-auth";
+import { getGraphAppClient } from "@/lib/graph/appClient";
+import { prisma } from "@/lib/prisma";
 
 type GraphTranscriptItem = {
     id: string;
@@ -14,12 +13,27 @@ type GraphTranscriptList = {
     value?: GraphTranscriptItem[];
 };
 
+// Type minimal de Meeting utilisé ici (on ne dépend plus de @prisma/client)
+type MeetingEntity = {
+    id: string;
+    fullTranscript: string | null;
+    transcriptRaw: string | null;
+    onlineMeetingId?: string | null;
+    organizerEmail?: string | null;
+};
+
+/**
+ * Garantit qu'on a un fullTranscript en BDD (sinon le récupère et le sauvegarde).
+ */
 export async function ensureFullTranscript(
-    meeting: Meeting,
+    meeting: MeetingEntity,
     session: Session
 ): Promise<string | null> {
     // 1) Déjà présent en BDD ?
-    if (typeof meeting.fullTranscript === "string" && meeting.fullTranscript.trim()) {
+    if (
+        typeof meeting.fullTranscript === "string" &&
+        meeting.fullTranscript.trim()
+    ) {
         return meeting.fullTranscript;
     }
 
@@ -27,7 +41,7 @@ export async function ensureFullTranscript(
     const userEmail = session.user?.email?.toLowerCase() ?? "";
     const isOrganizer = meeting.organizerEmail?.toLowerCase() === userEmail;
 
-    // 2) Essayer via les helpers Graph existants (onlineMeetingId)
+    // 2) Essayer via onlineMeetingId (Graph)
     if (meeting.onlineMeetingId) {
         try {
             if (isOrganizer) {
@@ -48,13 +62,13 @@ export async function ensureFullTranscript(
         }
     }
 
-    // 3) Fallback : utiliser transcriptRaw (le JSON avec transcriptContentUrl)
+    // 3) Fallback : utiliser transcriptRaw (JSON avec transcriptContentUrl)
     if (!text && typeof meeting.transcriptRaw === "string") {
         try {
             const raw = JSON.parse(meeting.transcriptRaw);
             const contentUrl =
                 raw.transcriptContentUrl ||
-                raw.transcriptContentUrl?.contentUrl ||
+                raw.transcriptRaw?.contentUrl ||
                 raw.transcriptContent?.contentUrl;
 
             if (contentUrl) {
@@ -165,15 +179,13 @@ export async function fetchTeamsTranscriptText(
 }
 
 /**
- * Version "app" (client credentials) si tu en as besoin.
- * Tu peux adapter en fonction de ton getGraphAppClient.
+ * Version "app" (client credentials).
  */
 export async function fetchTeamsTranscriptTextAsApp(
     appClient: Client,
     organizerEmail: string,
     onlineMeetingId: string
 ): Promise<string | null> {
-    // On re-liste les transcripts mais via /users/{organizer}/…
     const list = (await appClient
         .api(
             `/users/${encodeURIComponent(
@@ -190,8 +202,7 @@ export async function fetchTeamsTranscriptTextAsApp(
         return null;
     }
 
-    // Récupérer le token app utilisé par appClient
-    // (selon ton implémentation de getGraphAppClient)
+    // Récupérer le token app utilisé par appClient (selon getGraphAppClient)
     const authProvider: any = (appClient as any).config?.authProvider;
     let appToken: string | null = null;
     if (authProvider) {
