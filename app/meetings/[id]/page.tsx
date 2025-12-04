@@ -18,12 +18,19 @@ import Link from "next/link";
 import { GenerateSummaryButton } from "@/components/meetings/generate-summary-button";
 import { ClientSummary } from "@/components/meetings/client-summary";
 import { MeetingSummaryClient } from "@/app/meetings/[id]/meeting-summary-client";
+import React from "react";
 
 /* ------- Types ------- */
 
 type PageProps = {
     params: { id: string };
 };
+
+type Participant = {
+    displayName?: string | null;
+    email?: string | null;
+};
+
 
 /* ------- Helpers UI ------- */
 
@@ -138,7 +145,7 @@ async function ensureFullTranscript(
         return null;
     }
 
-    // 4) On utilise le accessToken de la session
+    // 4) On utilise de la session
     const accessToken = (session as any).accessToken as string | undefined;
     if (!accessToken) {
         console.warn(
@@ -223,10 +230,13 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                 Boolean(p)
             ) ?? [];
 
+
     const participantsFromDb =
         participantList
-            .map((p) => p.displayName || p.email)
+            .map((p: Participant) => p.displayName || p.email)
             .filter((v): v is string => Boolean(v));
+
+
 
     const hasSummary = Boolean(meeting.summaryJson);
 

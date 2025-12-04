@@ -6,7 +6,8 @@
   <component name="ChangeListManager">
     <list default="true" id="7ad4d2f6-78bd-4646-9fb4-7c05ab965b48" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/meetings/[id]/export-pdf/route.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/meetings/[id]/export-pdf/route.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/meetings/[id]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/[id]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -17,7 +18,7 @@
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
   <component name="ProblemsViewState">
-    <option name="selectedTabId" value="ProjectErrors" />
+    <option name="selectedTabId" value="QODANA_PROBLEMS_VIEW_TAB" />
   </component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
@@ -42,11 +43,29 @@
     "node.js.selected.package.eslint": "(autodetect)",
     "node.js.selected.package.tslint": "(autodetect)",
     "nodejs_package_manager_path": "npm",
+    "run.code.analysis.last.selected.profile": "pProject Default",
     "settings.editor.selected.configurable": "reference.settingsdialog.project.grazie",
     "ts.external.directory.path": "C:\\Users\\AndyVESPUCE\\Desktop\\nextmeetai\\node_modules\\typescript\\lib",
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
+  <component name="QodanaHighlightedReportService">
+    <option name="localRunNotPublishedPersistedInfo">
+      <LocalReportPersistedInfo>
+        <option name="path" value="C:\Users\AndyVESPUCE\AppData\Local\Temp\qodana_output\qodana.sarif.json" />
+        <option name="reportGuid" value="e2032d50-3b26-475a-95e5-67ce69d78e76" />
+        <option name="reportName" value="nextmeetai/qodana/2025-12-04" />
+      </LocalReportPersistedInfo>
+    </option>
+  </component>
+  <component name="QodanaIsSelectedPersistenceService">
+    <option name="selectedOrLoading" value="true" />
+  </component>
+  <component name="QodanaReportsService">
+    <option name="descriptions">
+      <ReportDescription localRun="true" path="C:\Users\AndyVESPUCE\AppData\Local\Temp\qodana_output\qodana.sarif.json" reportGuid="e2032d50-3b26-475a-95e5-67ce69d78e76" reportId="nextmeetai/qodana/2025-12-04" />
+    </option>
+  </component>
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\AndyVESPUCE\Desktop\nextmeetai\public" />
@@ -99,7 +118,7 @@
       <workItem from="1764259510414" duration="4535000" />
       <workItem from="1764509415357" duration="42512000" />
       <workItem from="1764766458467" duration="23976000" />
-      <workItem from="1764847796036" duration="13443000" />
+      <workItem from="1764847796036" duration="15310000" />
     </task>
     <servers />
   </component>

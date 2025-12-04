@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next build && node node_modules/next/dist/bin/next start -p $PORT",
-    "lint": "eslint"
+    "lint": "eslint",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.1",
