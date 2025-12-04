@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -126,7 +125,7 @@
 }
 
 @utility card-shadow {
-  box-shadow: 0px 4px 40px 0px #00000066;
+  box-shadow: 0 4px 40px 0 #00000066;
 }
 
 @layer base {
