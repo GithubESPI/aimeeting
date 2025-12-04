@@ -6,7 +6,6 @@ import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/prisma";
 import DashboardClient from "@/app/dashboard/dashboard-client";
 import { isAdmin } from "@/lib/roles";
-import type { Prisma } from "@prisma/client";
 
 const PROCESSED_STATUSES = ["summarized"];
 
@@ -23,8 +22,8 @@ export default async function DashboardPage() {
     // 🔹 Portée de visibilité :
     // - admin : tout le tenant
     // - user  : réunions où il est organisateur OU participant
-    const scopeFilter: Prisma.MeetingWhereInput = admin
-        ? {} // aucune restriction par email
+    const scopeFilter = admin
+        ? {}
         : {
             OR: [
                 {
@@ -48,12 +47,12 @@ export default async function DashboardPage() {
             ],
         };
 
-    // 🔹 Filtre "réunion prête" : transcription + enregistrement Teams
-    const readyFilter: Prisma.MeetingWhereInput = {
+    const readyFilter = {
         transcriptSource: "graph",
         hasGraphTranscript: true,
         hasGraphRecording: true,
     };
+
 
     // ─────────────────────────────
     // 📊 STATISTIQUES DASHBOARD

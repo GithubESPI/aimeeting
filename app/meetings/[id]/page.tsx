@@ -16,75 +16,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { GenerateSummaryButton } from "@/components/meetings/generate-summary-button";
-
-
-import {ClientSummary} from "@/components/meetings/client-summary";
-import {MeetingSummaryClient} from "@/app/meetings/[id]/meeting-summary-client";
-
-/* --- 🆕 AJOUT ICI : helper pour nettoyer le WebVTT en texte --- */
-function webVttToPlainText(vtt: string): string {
-    return vtt
-        .split("\n")
-        .filter((line) => {
-            const trimmed = line.trim();
-            if (!trimmed) return false;
-            if (trimmed.startsWith("WEBVTT")) return false;
-            if (/^\d+$/.test(trimmed)) return false;
-            if (trimmed.includes("-->")) return false;
-            return true;
-        })
-        .join("\n");
-}
+import { ClientSummary } from "@/components/meetings/client-summary";
+import { MeetingSummaryClient } from "@/app/meetings/[id]/meeting-summary-client";
 
 /* ------- Types ------- */
 
 type PageProps = {
-    params: Promise<{ id: string }>;
+    params: { id: string };
 };
 
 /* ------- Helpers UI ------- */
-/** Récupère le VTT brut à partir du JSON stocké dans transcriptRaw */
-async function fetchVttFromTranscriptRaw(
-    meeting: any,
-    accessToken?: string
-): Promise<string | null> {
-    if (!accessToken) return null;
-    if (!meeting.transcriptRaw || typeof meeting.transcriptRaw !== "string") {
-        return null;
-    }
-
-    try {
-        const raw = JSON.parse(meeting.transcriptRaw);
-
-        // Dans ta réponse Graph tu as soit transcriptContentUrl soit contentUrl
-        const contentUrl: string | undefined =
-            raw.transcriptContentUrl ?? raw.contentUrl;
-
-        if (!contentUrl || typeof contentUrl !== "string") {
-            console.warn("[fetchVttFromTranscriptRaw] pas de contentUrl dans transcriptRaw");
-            return null;
-        }
-
-        const res = await fetch(contentUrl, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-        });
-
-        if (!res.ok) {
-            console.error(
-                "[fetchVttFromTranscriptRaw] contentUrl status",
-                res.status,
-                await res.text()
-            );
-            return null;
-        }
-
-        const vtt = await res.text();
-        return vtt;
-    } catch (err) {
-        console.error("[fetchVttFromTranscriptRaw] erreur parse/fetch", err);
-        return null;
-    }
-}
 
 function DetailItem(props: { label: string; children: React.ReactNode }) {
     return (
@@ -127,35 +68,33 @@ function StatusBadge({ status }: { status: string }) {
     );
 }
 
-export function cleanTeamsTranscript(vtt: string): string {
+/* --- Helper pour nettoyer le VTT Teams --- */
+// ⚠️ NE PAS exporter cette fonction
+function cleanTeamsTranscript(vtt: string): string {
     return vtt
         // 0. Enlever explicitement "WEBVTT" et les lignes vides juste après
         .replace(/^WEBVTT.*\n?/i, "")
-
         // 1. Enlever les timestamps
         .replace(/\d{2}:\d{2}:\d{2}\.\d{3} --> .*$/gm, "")
-
         // 2. Transformer <v Speaker>Texte</v> → "Speaker : Texte"
-        .replace(/<v\s+([^>]+)>([\s\S]*?)<\/v>/gm, (match, speaker, text) => {
-            return `${speaker.trim()} : ${text.trim()}`;
-        })
-
+        .replace(
+            /<v\s+([^>]+)>([\s\S]*?)<\/v>/gm,
+            (_match: string, speaker: string, text: string) => {
+                return `${speaker.trim()} : ${text.trim()}`;
+            }
+        )
         // 3. Retirer balises résiduelles <v> ou HTML
         .replace(/<v[^>]*>/g, "")
         .replace(/<\/v>/g, "")
         .replace(/<\/?[^>]+>/g, "")
-
         // 4. Nettoyer espaces inutiles
         .replace(/\n{2,}/g, "\n")
-
         // 5. Trim final
         .trim();
 }
 
-/* ------- Page ------- */
+/* ------- Logic : garantir fullTranscript ------- */
 
-// 🔹 S'assure que fullTranscript est rempli en BDD et retourne le texte
-// 🔹 Télécharge le VTT via transcriptContentUrl + le stocke dans fullTranscript
 async function ensureFullTranscript(
     meeting: any,
     session: any
@@ -174,7 +113,7 @@ async function ensureFullTranscript(
         return null;
     }
 
-    // 3) On parse transcriptRaw (le JSON brut Graph que tu as montré)
+    // 3) On parse transcriptRaw (le JSON brut Graph)
     let raw: any;
     try {
         raw =
@@ -182,11 +121,15 @@ async function ensureFullTranscript(
                 ? JSON.parse(meeting.transcriptRaw)
                 : meeting.transcriptRaw;
     } catch (err) {
-        console.error("[ensureFullTranscript] impossible de parser transcriptRaw :", err);
+        console.error(
+            "[ensureFullTranscript] impossible de parser transcriptRaw :",
+            err
+        );
         return null;
     }
 
-    const contentUrl = raw.transcriptContentUrl ?? raw.contentUrl ?? null;
+    const contentUrl: string | null =
+        raw.transcriptContentUrl ?? raw.contentUrl ?? null;
 
     if (!contentUrl) {
         console.warn(
@@ -195,7 +138,7 @@ async function ensureFullTranscript(
         return null;
     }
 
-    // 4) On utilise le accessToken de la session (delegated, comme dans Graph Explorer)
+    // 4) On utilise le accessToken de la session
     const accessToken = (session as any).accessToken as string | undefined;
     if (!accessToken) {
         console.warn(
@@ -223,7 +166,7 @@ async function ensureFullTranscript(
 
         const vtt = await res.text();
 
-        // 🔹 ICI on applique ton nettoyage
+        // 🔹 Nettoyage VTT → texte
         const cleaned = cleanTeamsTranscript(vtt);
 
         // 5) On sauvegarde en BDD pour les prochaines fois
@@ -239,8 +182,10 @@ async function ensureFullTranscript(
     }
 }
 
+/* ------- Page ------- */
+
 export default async function MeetingDetailPage({ params }: PageProps) {
-    const { id } = await params;
+    const { id } = params; // ⬅️ plus de `await params`, ce n’est pas une Promise
 
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
@@ -263,7 +208,9 @@ export default async function MeetingDetailPage({ params }: PageProps) {
 
     const isOrganizer =
         meeting.organizerEmail?.toLowerCase() === email.toLowerCase();
-    const originLabel = meeting.graphId ? "Réunion Teams" : "Réunion présentielle";
+    const originLabel = meeting.graphId
+        ? "Réunion Teams"
+        : "Réunion présentielle";
 
     const start = meeting.startDateTime ?? meeting.createdAt;
     const end = meeting.endDateTime ?? null;
@@ -271,10 +218,11 @@ export default async function MeetingDetailPage({ params }: PageProps) {
 
     const participantList =
         meeting.attendees
-            ?.map((a) => a.participant)
-            .filter((p): p is NonNullable<typeof p> => Boolean(p)) ?? [];
+            ?.map((a: { participant: any }) => a.participant)
+            .filter((p: any): p is { id: string; displayName: string | null; email: string | null } =>
+                Boolean(p)
+            ) ?? [];
 
-    // 🔥 Nouveau : noms des participants depuis la BDD
     const participantsFromDb =
         participantList
             .map((p) => p.displayName || p.email)
@@ -282,11 +230,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
 
     const hasSummary = Boolean(meeting.summaryJson);
 
-    /* --------- RÉCUPÉRATION AUTOMATIQUE DU TEXTE COMPLET --------- */
     const fullTranscript =
         (await ensureFullTranscript(meeting as any, session)) ?? null;
-
-    /* ------------------------------------------------------------- */
 
     return (
         <section className="space-y-8">
@@ -316,18 +261,18 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                         <StatusBadge status={meeting.status} />
 
                         <span className="text-light-200">
-                            {format(start, "EEEE d MMMM yyyy · HH:mm", { locale: fr })}
-                        </span>
+              {format(start, "EEEE d MMMM yyyy · HH:mm", { locale: fr })}
+            </span>
 
                         {durationMinutes !== null && (
                             <span className="text-light-200">
-                                · Durée approx. {durationMinutes} min
-                            </span>
+                · Durée approx. {durationMinutes} min
+              </span>
                         )}
 
                         <span className="ml-2 rounded-full bg-dark-200 px-3 py-1 text-[11px] uppercase tracking-wide text-light-200">
-                            {isOrganizer ? "Organisateur" : "Participant"}
-                        </span>
+              {isOrganizer ? "Organisateur" : "Participant"}
+            </span>
                     </div>
                 </div>
             </div>
@@ -370,8 +315,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                     </Badge>
                                 ) : (
                                     <span className="text-light-200 text-xs">
-                                        Non détectée
-                                    </span>
+                    Non détectée
+                  </span>
                                 )}
                             </DetailItem>
 
@@ -382,8 +327,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                     </Badge>
                                 ) : (
                                     <span className="text-light-200 text-xs">
-                                        Non détecté
-                                    </span>
+                    Non détecté
+                  </span>
                                 )}
                             </DetailItem>
 
@@ -402,8 +347,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                     </code>
                                 ) : (
                                     <span className="text-light-200 text-xs">
-                                        Aucun (réunion hors Teams)
-                                    </span>
+                    Aucun (réunion hors Teams)
+                  </span>
                                 )}
                             </DetailItem>
                         </CardContent>
@@ -422,7 +367,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                         <CardContent className="space-y-2 text-sm text-light-100">
                             {participantList.length === 0 ? (
                                 <p className="text-light-200 text-xs">
-                                    Aucun participant n’est encore synchronisé pour cette réunion.
+                                    Aucun participant n’est encore synchronisé pour cette
+                                    réunion.
                                 </p>
                             ) : (
                                 <ul className="space-y-1">
@@ -432,12 +378,12 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                             className="flex items-center justify-between rounded-md bg-dark-200 px-3 py-2"
                                         >
                                             <div className="flex flex-col">
-                                                <span className="text-sm">
-                                                    {p.displayName || p.email}
-                                                </span>
+                        <span className="text-sm">
+                          {p.displayName || p.email}
+                        </span>
                                                 <span className="text-xs text-light-200">
-                                                    {p.email}
-                                                </span>
+                          {p.email}
+                        </span>
                                             </div>
                                         </li>
                                     ))}
@@ -457,8 +403,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
 
                         {fullTranscript ? (
                             <pre className="mt-4 whitespace-pre-wrap text-sm text-light-100 max-h-[420px] overflow-y-auto">
-                                {fullTranscript}
-                            </pre>
+                {fullTranscript}
+              </pre>
                         ) : (
                             <p className="mt-4 text-sm text-light-200">
                                 Aucune transcription disponible.
@@ -480,7 +426,6 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                         </CardHeader>
 
                         <CardContent className="space-y-4 text-sm text-light-100">
-                            {/* Ligne statut + bouton + export PDF */}
                             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <StatusBadge status={meeting.status} />
@@ -502,17 +447,19 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                 )}
                             </div>
 
-                            {/* Message d’erreur si dernier run en échec */}
                             {meeting.status === "error" && (
                                 <p className="text-[12px] text-red-300">
-                                    Une erreur est survenue lors de la dernière génération. Tu peux
-                                    réessayer.
+                                    Une erreur est survenue lors de la dernière génération. Tu
+                                    peux réessayer.
                                 </p>
                             )}
 
-                            {/* Contenu de la synthèse */}
                             {meeting.summaryJson ? (
-                                <ClientSummary meetingId={id} initialSummary={meeting.summaryJson} participants={participantsFromDb}  />
+                                <ClientSummary
+                                    meetingId={id}
+                                    initialSummary={meeting.summaryJson}
+                                    participants={participantsFromDb}
+                                />
                             ) : (
                                 <p className="text-xs text-light-200">
                                     Aucune synthèse n’a encore été générée pour cette réunion.
