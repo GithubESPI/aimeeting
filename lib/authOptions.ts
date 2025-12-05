@@ -122,25 +122,19 @@ export const authOptions: NextAuthOptions = {
     },
 
     callbacks: {
-        // Si tu as une logique spéciale ici (upsert manuel dans Prisma),
-        // tu peux la remettre, mais "true" suffit si tout marche déjà via l'adapter.
         async signIn({ account, profile }) {
             return true;
         },
 
-        // --- JWT : on stocke accessToken, refreshToken, expiration + ROLES ---
         async jwt({ token, account }) {
-            // Premier login : on a "account"
+            // Premier login
             if (account) {
-                // 🔹 1) Récupérer les rôles dans l'id_token Azure
                 let roles: string[] = [];
 
                 const idToken = (account as any).id_token as string | undefined;
                 if (idToken) {
                     try {
                         const decoded: any = jwtDecode(idToken);
-
-                        // Les rôles d'app se trouvent normalement dans "roles"
                         const rawRoles =
                             decoded.roles ||
                             decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
@@ -152,51 +146,51 @@ export const authOptions: NextAuthOptions = {
                     }
                 }
 
-                // 🔹 2) Calculer l'expiration de l'access token (comme avant)
                 const expiresAtSeconds =
                     (account as any).expires_at ??
                     (account as any).ext_expires_in ??
                     (account as any).expires_in ??
-                    3600; // fallback 1h
+                    3600;
 
                 const accessTokenExpires =
                     typeof expiresAtSeconds === "number"
-                        ? expiresAtSeconds * 1000 // sec -> ms
+                        ? expiresAtSeconds * 1000
                         : Date.now() + 60 * 60 * 1000;
 
                 return {
                     ...token,
                     accessToken: (account as any).access_token,
-                    refreshToken: (account as any).refresh_token,
                     accessTokenExpires,
-                    roles, // 🔹 on garde les rôles dans le token JWT
+                    roles,
+                    // ❌ on ne stocke plus refreshToken dans le JWT
                 };
             }
 
-            // Si on a déjà un accessToken et qu'il n'est pas expiré → on le garde
+            // Si le token n'est pas expiré on le renvoie tel quel
             if (token.accessTokenExpires && Date.now() < (token.accessTokenExpires as number)) {
                 return token;
             }
 
-            // Sinon → on tente de rafraîchir
-            return await refreshAccessToken(token);
+            // 🔴 Ici, au lieu de tenter un refresh avec refreshToken (qu'on a retiré),
+            // on signale simplement qu'il est expiré. Tu pourras gérer ça côté client
+            // en forçant une reconnexion si besoin.
+            return {
+                ...token,
+                error: "AccessTokenExpired",
+            };
         },
 
-        // --- session : on expose accessToken + error + roles côté client ---
         async session({ session, token }) {
             (session as any).accessToken = token.accessToken as string | undefined;
             (session as any).error = token.error;
 
-            // 🔹 Rôles Azure (admin / Organizer / Participant)
             const roles = ((token as any).roles as string[]) ?? [];
-
             (session.user as any).roles = roles;
-
-            // rôle principal simplifié et en lowercase (pratique dans le code)
             const primaryRole = (roles[0] ?? "Participant").toString();
             (session.user as any).role = primaryRole.toLowerCase();
 
             return session;
         },
     },
+
 };
