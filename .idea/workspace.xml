@@ -5,25 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7ad4d2f6-78bd-4646-9fb4-7c05ab965b48" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/app/api/meetings/sync/route.ts" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/app/meetings/teams/loading.tsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/types/date-fns-tz.d.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/admin/meetings/sync-all-meetings/route.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/admin/meetings/sync-all-meetings/route.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/api/uploadthing/core.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/uploadthing/core.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/dashboard/dashboard-client.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/dashboard/dashboard-client.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/dashboard/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/dashboard/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/app/globals.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/layout.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/meetings/[id]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/[id]/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/meetings/teams/TeamsMeetingsClient.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/teams/TeamsMeetingsClient.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/app/meetings/teams/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/teams/page.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/check-org.js" beforeDir="false" afterPath="$PROJECT_DIR$/check-org.js" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/Navbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/Navbar.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/components/meetings/generate-summary-button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/meetings/generate-summary-button.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/authOptions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/authOptions.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/graph/adminTranscripts.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/graph/adminTranscripts.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/graph/syncAllMeetings.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/graph/syncAllMeetings.ts" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/graph/syncTeamsMeetings.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/graph/syncTeamsMeetings.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -123,7 +110,8 @@
       <workItem from="1764509415357" duration="42512000" />
       <workItem from="1764766458467" duration="23976000" />
       <workItem from="1764847796036" duration="31481000" />
-      <workItem from="1764933887701" duration="3566000" />
+      <workItem from="1764933887701" duration="5414000" />
+      <workItem from="1764940137599" duration="195000" />
     </task>
     <servers />
   </component>

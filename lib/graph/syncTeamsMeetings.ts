@@ -6,6 +6,10 @@ import {
     parseTeamsVttToSegments,
     type TranscriptSegment as ParsedSegment,
 } from "./vtt-parser";
+import { zonedTimeToUtc } from "date-fns-tz";
+
+
+
 
 const DAYS_BACK = 365;
 
@@ -146,11 +150,19 @@ export async function syncTeamsMeetingsForSession(session: Session) {
         const subject = event.subject || "Sans titre";
 
         const startDateTime = event.start?.dateTime
-            ? new Date(event.start.dateTime)
+            ? zonedTimeToUtc(
+                event.start.dateTime,
+                event.start.timeZone || "Europe/Paris"
+            )
             : null;
+
         const endDateTime = event.end?.dateTime
-            ? new Date(event.end.dateTime)
+            ? zonedTimeToUtc(
+                event.end.dateTime,
+                event.end.timeZone || "Europe/Paris"
+            )
             : null;
+
 
         const joinUrl =
             event.onlineMeeting?.joinUrl || event.onlineMeetingUrl || null;

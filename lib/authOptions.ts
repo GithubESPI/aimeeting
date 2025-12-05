@@ -127,75 +127,66 @@ export const authOptions: NextAuthOptions = {
         },
 
         async jwt({ token, account }) {
-            // Premier login
+            // 🔹 Login initial
             if (account) {
-                let primaryRole = "participant"; // valeur par défaut
+                let roles: string[] = [];
 
                 const idToken = (account as any).id_token as string | undefined;
                 if (idToken) {
                     try {
                         const decoded: any = jwtDecode(idToken);
-
                         const rawRoles =
                             decoded.roles ||
                             decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
                             [];
 
-                        const rolesArr = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
-
-                        // Ici tu peux adapter la logique si tu as des rôles spécifiques
-                        if (rolesArr.length > 0) {
-                            primaryRole = String(rolesArr[0]); // on garde juste le premier
-                        }
+                        roles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
                     } catch (e) {
                         console.warn("[auth] Impossible de décoder id_token pour les rôles :", e);
                     }
                 }
 
-                const expiresAtSeconds =
-                    (account as any).expires_at ??
-                    (account as any).ext_expires_in ??
+                const expiresIn =
                     (account as any).expires_in ??
+                    (account as any).ext_expires_in ??
                     3600;
 
-                const accessTokenExpires =
-                    typeof expiresAtSeconds === "number"
-                        ? expiresAtSeconds * 1000
-                        : Date.now() + 60 * 60 * 1000;
-
                 return {
-                    // on garde les infos classiques du token, mais PAS le tableau roles
                     ...token,
                     accessToken: (account as any).access_token,
-                    accessTokenExpires,
-                    role: primaryRole, // 🔹 un seul rôle compact
-                    // ❌ plus de "roles: [...]"
+                    refreshToken: (account as any).refresh_token,   // ⬅️ on garde le refresh token
+                    accessTokenExpires: Date.now() + expiresIn * 1000,
+                    roles,
+                    error: undefined,
                 };
             }
 
-            // Si l'access token n'est pas expiré on renvoie le token
-            if (token.accessTokenExpires && Date.now() < (token.accessTokenExpires as number)) {
+            // 🔹 Token encore valide -> on le garde
+            if (
+                typeof token.accessTokenExpires === "number" &&
+                Date.now() < token.accessTokenExpires
+            ) {
                 return token;
             }
 
-            // Sinon on note une erreur d'expiration
-            return {
-                ...token,
-                error: "AccessTokenExpired",
-            };
+            // 🔹 Token expiré -> on tente un refresh avec Azure AD
+            const refreshed = await refreshAccessToken(token);
+            return refreshed;
         },
 
         async session({ session, token }) {
             (session as any).accessToken = token.accessToken as string | undefined;
             (session as any).error = token.error;
 
-            // role compact, une seule valeur
-            const role = (token as any).role ?? "participant";
-            (session.user as any).role = String(role).toLowerCase();
+            const roles = ((token as any).roles as string[]) ?? [];
+            (session.user as any).roles = roles;
+            const primaryRole = (roles[0] ?? "Participant").toString();
+            (session.user as any).role = primaryRole.toLowerCase();
 
             return session;
         },
     }
+
 
 
 };
