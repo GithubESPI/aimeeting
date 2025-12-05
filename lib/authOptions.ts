@@ -30,9 +30,25 @@ function getNameFromProfile(p: AADProfile, fallbackEmail: string | null): string
     return p.name ?? p.given_name ?? p.unique_name ?? fallbackEmail ?? "Utilisateur";
 }
 
-async function refreshAccessToken(token: any) {
+async function refreshAccessToken(token: JWT) {
     try {
-        if (!token.refreshToken) {
+        // 1) Récupérer le refresh_token depuis la BDD (table Account)
+        const userId = token.sub;
+        if (!userId) {
+            throw new Error("No user id on token");
+        }
+
+        const azureAccount = await prisma.account.findFirst({
+            where: {
+                userId,
+                provider: "azure-ad",
+            },
+        });
+
+        const refreshToken =
+            azureAccount?.refresh_token || (token as any).refreshToken;
+
+        if (!refreshToken) {
             throw new Error("No refresh token available");
         }
 
@@ -40,8 +56,7 @@ async function refreshAccessToken(token: any) {
             client_id: process.env.AZURE_AD_CLIENT_ID!,
             client_secret: process.env.AZURE_AD_CLIENT_SECRET!,
             grant_type: "refresh_token",
-            refresh_token: token.refreshToken as string,
-            // scopes
+            refresh_token: refreshToken,
             scope: "https://graph.microsoft.com/.default offline_access openid profile email",
         });
 
@@ -61,14 +76,13 @@ async function refreshAccessToken(token: any) {
             throw new Error(data.error_description || "Failed to refresh token");
         }
 
-        // data.expires_in = durée en secondes
         const accessTokenExpires = Date.now() + data.expires_in * 1000;
 
         return {
             ...token,
             accessToken: data.access_token,
             accessTokenExpires,
-            refreshToken: data.refresh_token ?? token.refreshToken, // on garde l’ancien si pas renvoyé
+            // on NE stocke plus refreshToken dans le cookie
             error: undefined,
         };
     } catch (error) {
@@ -154,7 +168,7 @@ export const authOptions: NextAuthOptions = {
                 return {
                     ...token,
                     accessToken: (account as any).access_token,
-                    refreshToken: (account as any).refresh_token,   // ⬅️ on garde le refresh token
+                    // ❌ plus de refreshToken dans le JWT/cookie
                     accessTokenExpires: Date.now() + expiresIn * 1000,
                     roles,
                     error: undefined,
