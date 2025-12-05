@@ -6,9 +6,6 @@ import {
     parseTeamsVttToSegments,
     type TranscriptSegment as ParsedSegment,
 } from "./vtt-parser";
-import { zonedTimeToUtc } from "date-fns-tz";
-
-
 
 
 const DAYS_BACK = 365;
@@ -17,6 +14,17 @@ function getGraphClient(accessToken: string) {
     return Client.init({
         authProvider: (done) => done(null, accessToken),
     });
+}
+
+function graphDateTimeToDate(
+    dateTime?: string | null,
+    _timeZone?: string | null
+): Date | null {
+    if (!dateTime) return null;
+    // Graph renvoie un ISO style "2025-12-05T09:00:00"
+    // new Date(...) va interpréter ça comme une datetime locale du serveur.
+    // Comme on ne fait que l'afficher ensuite, ça suffit largement.
+    return new Date(dateTime);
 }
 
 type TranscriptOrRecording = {
@@ -150,18 +158,13 @@ export async function syncTeamsMeetingsForSession(session: Session) {
         const subject = event.subject || "Sans titre";
 
         const startDateTime = event.start?.dateTime
-            ? zonedTimeToUtc(
-                event.start.dateTime,
-                event.start.timeZone || "Europe/Paris"
-            )
+            ? graphDateTimeToDate(event.start.dateTime, event.start.timeZone)
             : null;
 
         const endDateTime = event.end?.dateTime
-            ? zonedTimeToUtc(
-                event.end.dateTime,
-                event.end.timeZone || "Europe/Paris"
-            )
+            ? graphDateTimeToDate(event.end.dateTime, event.end.timeZone)
             : null;
+
 
 
         const joinUrl =

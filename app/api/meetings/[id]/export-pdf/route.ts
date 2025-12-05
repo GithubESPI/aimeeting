@@ -627,6 +627,36 @@ async function generateMeetingPdf(meeting: any, summary: any): Promise<Uint8Arra
     return pdfBytes;
 }
 
+function buildPdfFilename(meeting: any, summary: any) {
+    // Titre : on prend ce que tu affiches déjà en sous-titre
+    const rawTitle: string = summary?.titre || meeting.title || "Reunion";
+
+    // Date : priorité à startDateTime, sinon createdAt, sinon aujourd'hui
+    const baseDate = meeting.startDateTime
+        ? new Date(meeting.startDateTime)
+        : meeting.createdAt
+            ? new Date(meeting.createdAt)
+            : new Date();
+
+    const datePart = baseDate.toISOString().slice(0, 10); // YYYY-MM-DD
+
+    // Slug safe pour le système de fichiers :
+    // - supprime les accents
+    // - remplace tout ce qui n'est pas alphanumérique par des tirets
+    // - évite les doubles tirets et coupe à ~60 caractères
+    const slug =
+        rawTitle
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "") // accents
+            .replace(/[^a-zA-Z0-9]+/g, "-")
+            .replace(/-+/g, "-")
+            .replace(/^-|-$/g, "")
+            .slice(0, 60) || "Reunion";
+
+    return `Compte-rendu-${datePart}-${slug}.pdf`;
+}
+
+
 // ---------- GET : téléchargement direct du PDF ----------
 
 export async function GET(
@@ -658,14 +688,16 @@ export async function GET(
     const summary = meeting.summaryJson as any;
 
     const pdfBytes = await generateMeetingPdf(meeting, summary);
+    const filename = buildPdfFilename(meeting, summary);
 
     return new Response(pdfBytes as any, {
         status: 200,
         headers: {
             "Content-Type": "application/pdf",
-            "Content-Disposition": `attachment; filename="Compte-rendu-${meetingId}.pdf"`,
+            "Content-Disposition": `attachment; filename="${filename}"`,
         },
     });
+
 }
 
 // ---------- POST : envoi du PDF par mail via Microsoft Graph ----------
@@ -751,7 +783,7 @@ export async function POST(
     <p>Cordialement,<br/>ESPI_AI</p>
   `;
 
-    const filename = `Compte-rendu-${meetingId}.pdf`;
+    const filename = buildPdfFilename(meeting, summary);
 
     // 4️⃣ Envoi via Microsoft Graph en tant qu'utilisateur connecté
     const sendMailRes = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
