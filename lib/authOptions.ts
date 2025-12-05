@@ -129,18 +129,24 @@ export const authOptions: NextAuthOptions = {
         async jwt({ token, account }) {
             // Premier login
             if (account) {
-                let roles: string[] = [];
+                let primaryRole = "participant"; // valeur par défaut
 
                 const idToken = (account as any).id_token as string | undefined;
                 if (idToken) {
                     try {
                         const decoded: any = jwtDecode(idToken);
+
                         const rawRoles =
                             decoded.roles ||
                             decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
                             [];
 
-                        roles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+                        const rolesArr = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+
+                        // Ici tu peux adapter la logique si tu as des rôles spécifiques
+                        if (rolesArr.length > 0) {
+                            primaryRole = String(rolesArr[0]); // on garde juste le premier
+                        }
                     } catch (e) {
                         console.warn("[auth] Impossible de décoder id_token pour les rôles :", e);
                     }
@@ -158,22 +164,21 @@ export const authOptions: NextAuthOptions = {
                         : Date.now() + 60 * 60 * 1000;
 
                 return {
+                    // on garde les infos classiques du token, mais PAS le tableau roles
                     ...token,
                     accessToken: (account as any).access_token,
                     accessTokenExpires,
-                    roles,
-                    // ❌ on ne stocke plus refreshToken dans le JWT
+                    role: primaryRole, // 🔹 un seul rôle compact
+                    // ❌ plus de "roles: [...]"
                 };
             }
 
-            // Si le token n'est pas expiré on le renvoie tel quel
+            // Si l'access token n'est pas expiré on renvoie le token
             if (token.accessTokenExpires && Date.now() < (token.accessTokenExpires as number)) {
                 return token;
             }
 
-            // 🔴 Ici, au lieu de tenter un refresh avec refreshToken (qu'on a retiré),
-            // on signale simplement qu'il est expiré. Tu pourras gérer ça côté client
-            // en forçant une reconnexion si besoin.
+            // Sinon on note une erreur d'expiration
             return {
                 ...token,
                 error: "AccessTokenExpired",
@@ -184,13 +189,13 @@ export const authOptions: NextAuthOptions = {
             (session as any).accessToken = token.accessToken as string | undefined;
             (session as any).error = token.error;
 
-            const roles = ((token as any).roles as string[]) ?? [];
-            (session.user as any).roles = roles;
-            const primaryRole = (roles[0] ?? "Participant").toString();
-            (session.user as any).role = primaryRole.toLowerCase();
+            // role compact, une seule valeur
+            const role = (token as any).role ?? "participant";
+            (session.user as any).role = String(role).toLowerCase();
 
             return session;
         },
-    },
+    }
+
 
 };
