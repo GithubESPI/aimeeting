@@ -19,6 +19,7 @@ import { GenerateSummaryButton } from "@/components/meetings/generate-summary-bu
 import { ClientSummary } from "@/components/meetings/client-summary";
 import { MeetingSummaryClient } from "@/app/meetings/[id]/meeting-summary-client";
 import React from "react";
+import {isAdmin} from "@/lib/roles";
 
 /* ------- Types ------- */
 
@@ -184,11 +185,11 @@ async function ensureFullTranscript(
 
 export default async function MeetingDetailPage({ params }: PageProps) {
     const { id } = params;
-
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
         redirect("/");
     }
+    const admin = isAdmin(session);
 
     const email = session.user.email;
 
@@ -247,7 +248,16 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                         ← Retour aux réunions Teams
                     </Link>
 
-                    <h1 className="text-3xl font-schibsted-grotesk font-bold text-white">
+                    <div className="mt-3 md:mt-0">
+                        <Link
+                            href="/dashboard"
+                            className="inline-flex items-center rounded-full bg-dark-200/80 px-4 py-2 text-xs font-medium text-light-100 border border-border-dark hover:bg-dark-200 hover:text-white transition-colors"
+                        >
+                            ← Retour au tableau de bord
+                        </Link>
+                    </div>
+
+                    <h1 className="text-3xl font-schibsted-grotesk font-bold text-[#005E83]]">
                         {meeting.title || "Réunion sans titre"}
                     </h1>
 
@@ -334,7 +344,7 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                 )}
                             </DetailItem>
 
-                            {meeting.transcriptSource && (
+                            {admin && meeting.transcriptSource && (
                                 <DetailItem label="Source principale">
                                     {meeting.transcriptSource === "graph"
                                         ? "Microsoft Graph"
@@ -342,17 +352,19 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                 </DetailItem>
                             )}
 
-                            <DetailItem label="ID Graph">
-                                {meeting.graphId ? (
-                                    <code className="text-[11px] text-light-200 break-all">
-                                        {meeting.graphId}
-                                    </code>
-                                ) : (
-                                    <span className="text-light-200 text-xs">
-                    Aucun (réunion hors Teams)
-                  </span>
-                                )}
-                            </DetailItem>
+                            {admin && (
+                                <DetailItem label="ID Graph">
+                                    {meeting.graphId ? (
+                                        <code className="text-[11px] text-light-200 break-all">
+                                            {meeting.graphId}
+                                        </code>
+                                    ) : (
+                                        <span className="text-light-200 text-xs">
+                                            Aucun (réunion hors Teams)
+                                        </span>
+                                    )}
+                                </DetailItem>
+                            )}
                         </CardContent>
                     </Card>
 

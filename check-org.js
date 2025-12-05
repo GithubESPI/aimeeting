@@ -14,7 +14,7 @@ async function run() {
             input: "hello from test script",
         });
 
-        console.log("✅ Réponse OK :", res.output[0].content[0].text);
+        //console.log("✅ Réponse OK :", res.output[0].content[0].text);
     } catch (err) {
         console.error("❌ Erreur OpenAI :", err);
     }

@@ -150,8 +150,9 @@ export async function syncAllMeetingsAppOnly() {
             }
 
             // 6️⃣ Upsert en BDD : ces réunions seront visibles par l'admin
+            // 6️⃣ Upsert en BDD : ces réunions seront visibles par l'admin
             await prisma.meeting.upsert({
-                where: { graphId },
+                where: { onlineMeetingId: onlineMeetingId! }, // <- ici aussi
                 create: {
                     graphId,
                     title: subject,
@@ -159,7 +160,7 @@ export async function syncAllMeetingsAppOnly() {
                     endDateTime,
                     organizerEmail: organizerEmail ?? undefined,
                     joinUrl: joinUrl ?? undefined,
-                    onlineMeetingId: onlineMeetingId ?? undefined,
+                    onlineMeetingId: onlineMeetingId!,
                     status: "created",
                     transcriptRaw: transcriptJson
                         ? JSON.stringify(transcriptJson)
@@ -170,12 +171,13 @@ export async function syncAllMeetingsAppOnly() {
                     // transcript (VTT) et segments : on peut les remplir plus tard
                 },
                 update: {
+                    graphId,
                     title: subject,
                     startDateTime,
                     endDateTime,
                     organizerEmail: organizerEmail ?? undefined,
                     joinUrl: joinUrl ?? undefined,
-                    onlineMeetingId: onlineMeetingId ?? undefined,
+                    onlineMeetingId: onlineMeetingId!,
                     transcriptRaw: transcriptJson
                         ? JSON.stringify(transcriptJson)
                         : undefined,
@@ -184,6 +186,7 @@ export async function syncAllMeetingsAppOnly() {
                     hasGraphRecording: hasR,
                 },
             });
+
         }
     }
 }

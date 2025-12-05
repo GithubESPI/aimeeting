@@ -9,7 +9,7 @@
   --color-light-200: #8b9bb0;      /* Gris un peu plus sombre */
 
   /* Fond & cartes */
-  --background: #04213C;        /* Fond sombre bleu nuit */
+  --background: #FFFFFF;        /* Fond sombre bleu nuit */
   --foreground: #ffffff;
   --color-dark-100: #005E83;    /* Cartes / blocs (bleu principal assombri) */
   --color-dark-200: #04213C;    /* Cartes contrastées */
@@ -117,7 +117,7 @@
 }
 
 @utility text-gradient {
-  @apply to-blue bg-gradient-to-b from-white via-white bg-clip-text font-semibold text-transparent;
+  @apply bg-[#005E83] bg-clip-text font-semibold text-transparent;
 }
 
 @utility glass {

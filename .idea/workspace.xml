@@ -5,9 +5,25 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7ad4d2f6-78bd-4646-9fb4-7c05ab965b48" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/app/api/meetings/sync/route.ts" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/app/meetings/teams/loading.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/admin/meetings/sync-all-meetings/route.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/admin/meetings/sync-all-meetings/route.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/api/uploadthing/core.ts" beforeDir="false" afterPath="$PROJECT_DIR$/app/api/uploadthing/core.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/dashboard/dashboard-client.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/dashboard/dashboard-client.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/dashboard/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/dashboard/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/app/globals.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/layout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/layout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/meetings/[id]/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/[id]/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/meetings/teams/TeamsMeetingsClient.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/teams/TeamsMeetingsClient.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/meetings/teams/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/teams/page.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/check-org.js" beforeDir="false" afterPath="$PROJECT_DIR$/check-org.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/Navbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/Navbar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/components/meetings/generate-summary-button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/components/meetings/generate-summary-button.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/authOptions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/authOptions.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/graph/adminTranscripts.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/graph/adminTranscripts.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/graph/syncAllMeetings.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/graph/syncAllMeetings.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/graph/syncTeamsMeetings.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/graph/syncTeamsMeetings.ts" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -28,39 +44,27 @@
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "ModuleVcsDetector.initialDetectionPerformed": "true",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "RunOnceActivity.git.unshallow": "true",
-    "git-widget-placeholder": "main",
-    "js.debugger.nextJs.config.created.client": "true",
-    "js.debugger.nextJs.config.created.server": "true",
-    "junie.onboarding.icon.badge.shown": "true",
-    "last_opened_file_path": "C:/Users/AndyVESPUCE/Desktop/nextmeetai/public",
-    "node.js.detected.package.eslint": "true",
-    "node.js.detected.package.tslint": "true",
-    "node.js.selected.package.eslint": "(autodetect)",
-    "node.js.selected.package.tslint": "(autodetect)",
-    "nodejs_package_manager_path": "npm",
-    "run.code.analysis.last.selected.profile": "pProject Default",
-    "settings.editor.selected.configurable": "reference.settingsdialog.project.grazie",
-    "ts.external.directory.path": "C:\\Users\\AndyVESPUCE\\Desktop\\nextmeetai\\node_modules\\typescript\\lib",
-    "vue.rearranger.settings.migration": "true"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;js.debugger.nextJs.config.created.client&quot;: &quot;true&quot;,
+    &quot;js.debugger.nextJs.config.created.server&quot;: &quot;true&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/AndyVESPUCE/Desktop/nextmeetai/public&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;run.code.analysis.last.selected.profile&quot;: &quot;pProject Default&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;reference.settingsdialog.project.grazie&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\AndyVESPUCE\\Desktop\\nextmeetai\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
-}]]></component>
-  <component name="QodanaHighlightedReportService">
-    <option name="localRunNotPublishedPersistedInfo">
-      <LocalReportPersistedInfo>
-        <option name="path" value="C:\Users\AndyVESPUCE\AppData\Local\Temp\qodana_output\qodana.sarif.json" />
-        <option name="reportGuid" value="e2032d50-3b26-475a-95e5-67ce69d78e76" />
-        <option name="reportName" value="nextmeetai/qodana/2025-12-04" />
-      </LocalReportPersistedInfo>
-    </option>
-  </component>
-  <component name="QodanaIsSelectedPersistenceService">
-    <option name="selectedOrLoading" value="true" />
-  </component>
+}</component>
   <component name="QodanaReportsService">
     <option name="descriptions">
       <ReportDescription localRun="true" path="C:\Users\AndyVESPUCE\AppData\Local\Temp\qodana_output\qodana.sarif.json" reportGuid="e2032d50-3b26-475a-95e5-67ce69d78e76" reportId="nextmeetai/qodana/2025-12-04" />
@@ -118,7 +122,8 @@
       <workItem from="1764259510414" duration="4535000" />
       <workItem from="1764509415357" duration="42512000" />
       <workItem from="1764766458467" duration="23976000" />
-      <workItem from="1764847796036" duration="25914000" />
+      <workItem from="1764847796036" duration="31481000" />
+      <workItem from="1764933887701" duration="3566000" />
     </task>
     <servers />
   </component>

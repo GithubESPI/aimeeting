@@ -22,12 +22,12 @@ const Navbar = () => {
 
                 {/* ---- MENU ---- */}
                 <div className="flex items-center gap-6 text-sm">
-                        <Link
-                            href="/meetings/teams"
-                            className="text-light-100 hover:text-white transition-colors"
-                        >
-                            Réunions Teams
-                        </Link>
+                    <Link
+                        href="/meetings/teams"
+                        className="text-light-100 hover:text-white transition-colors"
+                    >
+                        Réunions Teams
+                    </Link>
                 </div>
 
             </nav>

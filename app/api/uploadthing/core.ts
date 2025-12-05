@@ -10,7 +10,7 @@ export const ourFileRouter = {
         video: { maxFileSize: "512MB" },
     }).onUploadComplete(async ({ file }) => {
         // Tu peux logger ou enrichir si besoin
-        console.log("Upload meeting recording:", file.url);
+        //console.log("Upload meeting recording:", file.url);
         return { url: file.url };
     }),
 } satisfies FileRouter;

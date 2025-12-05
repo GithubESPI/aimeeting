@@ -57,12 +57,12 @@ export function GenerateSummaryButton({
                 size="sm"
                 onClick={handleClick}
                 disabled={disabled || isLoading}
-                className="bg-light-100 text-dark-900 hover:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                className="bg-red-400 text-dark-900 hover:bg-red-500 text-white disabled:opacity-60 disabled:cursor-not-allowed"
             >
                 {isLoading && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
                 )}
-                {isLoading ? "Synthèse en cours…" : "Générer la synthèse IA"}
+                {isLoading ? "Synthèse en cours…" : "Générer la synthèse avec l'IA"}
             </Button>
 
             {errorMsg && (

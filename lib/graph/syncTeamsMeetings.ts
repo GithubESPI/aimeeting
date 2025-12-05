@@ -249,8 +249,9 @@ export async function syncTeamsMeetingsForSession(session: Session) {
         }
 
         // 3) Sauvegarde Meeting
+        // 3) Sauvegarde Meeting
         const dbMeeting = await prisma.meeting.upsert({
-            where: { graphId },
+            where: { onlineMeetingId: onlineMeetingId! }, // <- clé réelle unique
             create: {
                 graphId,
                 title: subject,
@@ -258,7 +259,7 @@ export async function syncTeamsMeetingsForSession(session: Session) {
                 endDateTime,
                 organizerEmail: organizerEmail ?? undefined,
                 joinUrl: joinUrl ?? undefined,
-                onlineMeetingId: onlineMeetingId ?? undefined,
+                onlineMeetingId: onlineMeetingId!,          // on force non-null
                 status: "created",
 
                 transcriptRaw: transcriptJson
@@ -270,12 +271,13 @@ export async function syncTeamsMeetingsForSession(session: Session) {
                 hasGraphRecording: hasR,
             },
             update: {
+                graphId, // on garde le dernier graphId connu
                 title: subject,
                 startDateTime,
                 endDateTime,
                 organizerEmail: organizerEmail ?? undefined,
                 joinUrl: joinUrl ?? undefined,
-                onlineMeetingId: onlineMeetingId ?? undefined,
+                onlineMeetingId: onlineMeetingId!, // reste aligné
 
                 transcriptRaw: transcriptJson
                     ? JSON.stringify(transcriptJson)
@@ -286,6 +288,7 @@ export async function syncTeamsMeetingsForSession(session: Session) {
                 hasGraphRecording: hasR,
             },
         });
+
 
         // 4) Segments
         if (parsedSegments.length && dbMeeting.id) {

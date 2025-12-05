@@ -1,7 +1,7 @@
 // app/meetings/teams/TeamsMeetingsClient.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -17,23 +17,47 @@ type MeetingItem = {
 
 type Props = {
     meetings: MeetingItem[];
+    needInitialSync: boolean;
 };
 
-export function TeamsMeetingsClient({ meetings }: Props) {
+export function TeamsMeetingsClient({ meetings, needInitialSync }: Props) {
+    const [meetingsState, setMeetingsState] = useState<MeetingItem[]>(meetings);
     const [query, setQuery] = useState("");
     const [statusFilter, setStatusFilter] = useState<
         "all" | "summarized" | "created"
     >("all");
+    const [syncing, setSyncing] = useState<boolean>(needInitialSync);
+
+    // 🔁 synchro en arrière-plan à la première visite
+    useEffect(() => {
+        if (!needInitialSync) return;
+
+        const run = async () => {
+            try {
+                setSyncing(true);
+                const res = await fetch("/api/meetings/sync", { method: "POST" });
+                if (!res.ok) throw new Error("Sync failed");
+                const data = await res.json();
+                if (Array.isArray(data.meetings)) {
+                    setMeetingsState(data.meetings);
+                }
+            } catch (e) {
+                console.error("Erreur synchro meetings:", e);
+            } finally {
+                setSyncing(false);
+            }
+        };
+
+        run();
+    }, [needInitialSync]);
 
     const filtered = useMemo(() => {
-        let list = [...meetings];
+        let list = [...meetingsState];
 
-        // 1) filtre statut
         if (statusFilter !== "all") {
             list = list.filter((m) => m.status === statusFilter);
         }
 
-        // 2) recherche texte (titre + organisateur)
         const q = query.trim().toLowerCase();
         if (q) {
             list = list.filter((m) => {
@@ -44,13 +68,20 @@ export function TeamsMeetingsClient({ meetings }: Props) {
         }
 
         return list;
-    }, [meetings, query, statusFilter]);
+    }, [meetingsState, query, statusFilter]);
 
     return (
         <div className="space-y-4">
+            {/* Petit bandeau de synchro */}
+            {syncing && (
+                <div className="flex items-center gap-2 text-xs text-light-200">
+                    <span className="h-3 w-3 rounded-full border-2 border-light-200 border-t-blue animate-spin" />
+                    <span>Synchronisation des réunions Teams…</span>
+                </div>
+            )}
+
             {/* Barre de recherche + filtres */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                {/* Recherche */}
                 <div className="relative w-full sm:max-w-xs">
                     <input
                         type="text"
@@ -70,7 +101,6 @@ export function TeamsMeetingsClient({ meetings }: Props) {
                     )}
                 </div>
 
-                {/* Filtres de statut */}
                 <div className="inline-flex items-center gap-1 rounded-full border border-border-dark bg-dark-100/80 p-1 text-[11px]">
                     {[
                         { key: "all", label: "Toutes" },
@@ -98,7 +128,9 @@ export function TeamsMeetingsClient({ meetings }: Props) {
             {/* Liste filtrée */}
             {filtered.length === 0 ? (
                 <div className="rounded-2xl bg-dark-100 border border-border-dark p-6 text-sm text-light-200">
-                    Aucune réunion ne correspond à votre recherche.
+                    {syncing
+                        ? "Synchronisation en cours…"
+                        : "Aucune réunion ne correspond à votre recherche."}
                 </div>
             ) : (
                 <div className="flex flex-col gap-3">
@@ -118,7 +150,6 @@ export function TeamsMeetingsClient({ meetings }: Props) {
                                 className="group block rounded-2xl bg-gradient-to-br from-dark-100 via-dark-100 to-dark-200 border border-border-dark/80 px-5 py-4 shadow-[0_18px_40px_rgba(0,0,0,0.35)] backdrop-blur-sm transition-all hover:-translate-y-[1px] hover:border-blue/70 hover:bg-dark-200/90"
                             >
                                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                    {/* Colonne gauche : titre + meta */}
                                     <div className="space-y-1">
                                         <h2 className="text-sm font-semibold text-white md:text-[15px]">
                                             {m.title || "Réunion sans titre"}
@@ -135,7 +166,6 @@ export function TeamsMeetingsClient({ meetings }: Props) {
                                         )}
                                     </div>
 
-                                    {/* Colonne droite : statut + indicateurs */}
                                     <div className="flex flex-col items-start gap-1 md:items-end">
                     <span
                         className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-medium ${
@@ -145,7 +175,9 @@ export function TeamsMeetingsClient({ meetings }: Props) {
                         }`}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        {isSummarized ? "Statut : summarized" : `Statut : ${m.status}`}
+                        {isSummarized
+                            ? "Statut : summarized"
+                            : `Statut : ${m.status}`}
                     </span>
 
                                         <span className="inline-flex items-center gap-1 text-[11px] text-light-200">

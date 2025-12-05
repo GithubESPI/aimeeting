@@ -92,9 +92,7 @@ export async function importMeetingTranscriptAdmin(
             });
         }
 
-        console.log(
-            `[ADMIN] Import transcription OK : ${segments.length} segments enregistrés`
-        );
+        //console.log(`[ADMIN] Import transcription OK : ${segments.length} segments enregistrés`);
 
         return segments;
     } catch (e) {

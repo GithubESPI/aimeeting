@@ -24,7 +24,7 @@ export async function POST() {
 
         // 2️⃣ Enrichir avec onlineMeetingId + hasGraphTranscript / hasGraphRecording
         const res = await syncAdminMeetings();
-        console.log("[admin sync] meetings enrichis:", res);
+        
 
         // 3️⃣ (optionnel) ne garder en BDD que les meetings qui ont transcript ET recording
         await prisma.meeting.deleteMany({

@@ -46,7 +46,7 @@ type Props = {
 };
 
 export default function DashboardClient({ user, meetings, stats }: Props) {
-    console.log("📌 Meetings reçues par le dashboard :", meetings);
+    //console.log("📌 Meetings reçues par le dashboard :", meetings);
     const { total, processed, pending } = stats;
 
     const initials =
@@ -66,7 +66,7 @@ export default function DashboardClient({ user, meetings, stats }: Props) {
             <Navbar />
             <div>
                 <h1 className="text-center mt-20">Tableau de bord des réunions</h1>
-                <p className="text-center mt-5">
+                <p className="text-center mt-5 text-[#005E83]">
                     Visualisez vos réunions Teams, suivez leur traitement
                     et accédez rapidement aux comptes rendus IA.
                 </p>
@@ -114,7 +114,7 @@ export default function DashboardClient({ user, meetings, stats }: Props) {
                     <Card className="bg-dark-200 border-border-dark card-shadow rounded-xl">
                         <CardHeader className="pb-2">
                             <CardDescription className="text-light-200 text-xs">
-                                En attente de traitement
+                                Réunions en attente de synthèse
                             </CardDescription>
                             <CardTitle className="text-3xl font-semibold text-white">
                                 {pending}

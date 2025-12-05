@@ -99,7 +99,7 @@ export default async function DashboardPage() {
         },
     });
 
-    console.log("📌 Meetings trouvées par Prisma pour le dashboard :", meetings);
+    //console.log("📌 Meetings trouvées par Prisma pour le dashboard :", meetings);
 
     return (
         <DashboardClient
