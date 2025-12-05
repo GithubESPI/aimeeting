@@ -6,6 +6,7 @@ import { isAdmin } from "@/lib/roles";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { TeamsMeetingsClient } from "./TeamsMeetingsClient";
+import { SyncMeetingsButton } from "./SyncMeetingsButton";
 
 const SYNC_FRESHNESS_MINUTES = 10;
 
@@ -111,7 +112,10 @@ export default async function TeamsMeetingsPage() {
                         </div>
                     </div>
 
-                    <div className="mt-3 md:mt-0">
+                    {/* Boutons à droite */}
+                    <div className="mt-3 flex flex-col gap-2 md:mt-0 md:flex-row md:items-center md:gap-3">
+                        <SyncMeetingsButton />
+
                         <Link
                             href="/dashboard"
                             className="inline-flex items-center rounded-full bg-dark-200/80 px-4 py-2 text-xs font-medium text-light-100 border border-border-dark hover:bg-dark-200 hover:text-white transition-colors"

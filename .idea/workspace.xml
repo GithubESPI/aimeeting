@@ -5,8 +5,9 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="7ad4d2f6-78bd-4646-9fb4-7c05ab965b48" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/app/meetings/teams/SyncMeetingsButton.tsx" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/lib/authOptions.ts" beforeDir="false" afterPath="$PROJECT_DIR$/lib/authOptions.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/meetings/teams/page.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/app/meetings/teams/page.tsx" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -107,7 +108,7 @@
       <workItem from="1764766458467" duration="23976000" />
       <workItem from="1764847796036" duration="31481000" />
       <workItem from="1764933887701" duration="5414000" />
-      <workItem from="1764940137599" duration="3747000" />
+      <workItem from="1764940137599" duration="6059000" />
     </task>
     <servers />
   </component>
