@@ -35,7 +35,7 @@ function SignInContent() {
                 <Button
                     variant="outline"
                     onClick={() => signIn("azure-ad", { callbackUrl: "/dashboard" })}
-                    className="w-full h-11 text-white cursor-pointer"
+                    className="w-full h-11 text-white bg-[#005E83] cursor-pointer"
                 >
                     Connectez-vous avec Microsoft
                 </Button>

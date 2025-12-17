@@ -32,7 +32,12 @@ export type SummaryShape = {
     decisions: string[];
     actions: ActionItem[];
     meta?: { exclusions?: string[] };
+
+    // ✅ NEW
+    speakers?: string[];
+    verbatims?: { speaker: string; quote: string }[];
 };
+
 
 // -------------------- Config anti-429 --------------------
 const MODEL_PRIMARY = "gpt-4o-mini"; // model pas cher / léger
@@ -68,6 +73,40 @@ function redactSensitive(text: string) {
     for (const p of patterns) out = out.replace(p, "[confidentiel]");
     return out;
 }
+
+function extractSpeakersAndQuotes(transcript: string) {
+    const lines = transcript
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+    // "Didier LATOUR : bla bla"
+    const speakerRegex = /^([^:]{2,60})\s*:\s*(.+)$/;
+
+    const speakersSet = new Set<string>();
+    const samples: { speaker: string; quote: string }[] = [];
+
+    for (const line of lines) {
+        const m = line.match(speakerRegex);
+        if (!m) continue;
+
+        const speaker = m[1].trim();
+        const quote = m[2].trim();
+
+        speakersSet.add(speaker);
+
+        // on garde quelques citations “propres”
+        if (quote.length >= 40 && quote.length <= 180 && samples.length < 10) {
+            samples.push({ speaker, quote });
+        }
+    }
+
+    return {
+        speakers: Array.from(speakersSet),
+        verbatims: samples.slice(0, 8),
+    };
+}
+
 
 // Split “doux” par paragraphes en respectant un budget token approximatif
 function splitTranscriptToChunks(
@@ -217,10 +256,7 @@ Contraintes :
 - Combine et déduplique les infos des morceaux.
 - Pas d'invention; si info absente, ne pas la créer.
 - JSON STRICT: {
-  "titre": string, 
-  "date": string, 
-  "heure": string, 
-  "participants": string[],
+  "titre": string,
   "resume": string,
   "compte_rendu_etendu": string,
   "contenu_detaille": string,
@@ -230,6 +266,7 @@ Contraintes :
   "actions": [ { "tache": string, "owner": string, "deadline": string | null } ],
   "meta": { "exclusions": string[] }
 }`;
+
 
     const packed = chunksData
         .map(
@@ -269,7 +306,15 @@ Actions: ${c.actions
  */
 export async function summarizeTranscript(
     rawTranscript: string,
-    opts?: { title?: string; minWords?: number; maxWords?: number }
+    opts?: {
+        title?: string;
+        minWords?: number;
+        maxWords?: number;
+
+        // ✅ NEW: valeurs fiables venant de ta BDD (route API)
+        meetingDateISO?: string;      // ex: meeting.startDateTime.toISOString()
+        participants?: string[];      // ex: attendees
+    }
 ): Promise<SummaryShape> {
     const title = opts?.title ?? "";
     const minWords = Math.max(opts?.minWords ?? FINAL_MIN_DEFAULT, 800);
@@ -280,28 +325,58 @@ export async function summarizeTranscript(
     const hardMaxChars = CHUNK_TARGET_TOKENS * 4 * MAX_CHUNKS;
     const transcript = clampChars(clean, hardMaxChars);
 
-    // 2) split en chunks
+// ✅ NEW: extraction "qui parle" depuis la transcription
+    const { speakers, verbatims } = extractSpeakersAndQuotes(transcript);
+
+// 2) split en chunks
     const chunks = splitTranscriptToChunks(transcript, CHUNK_TARGET_TOKENS);
     if (chunks.length === 0) {
         throw new Error("Empty transcript after cleaning.");
     }
 
-    // 3) résumer chaque chunk
+// 3) résumer chaque chunk
     const parts: Awaited<ReturnType<typeof summarizeChunk>>[] = [];
     for (const c of chunks) {
         parts.push(await summarizeChunk(c));
     }
 
-    // 4) composer le résumé final long
+// 4) composer le résumé final long
     const finalSummary = await composeFinal(title, parts, minWords, maxWords);
+
+// ✅ NEW: on force les métadonnées fiables (PAS celles du modèle)
+    const meetingDateISO = opts?.meetingDateISO;
+    const participants = opts?.participants ?? [];
+
+    if (meetingDateISO) {
+        const d = new Date(meetingDateISO);
+        finalSummary.date = d.toLocaleDateString("fr-FR");
+        finalSummary.heure = d.toLocaleTimeString("fr-FR", {
+            hour: "2-digit",
+            minute: "2-digit",
+        });
+    } else {
+        finalSummary.date = finalSummary.date || "";
+        finalSummary.heure = finalSummary.heure || "";
+    }
+
+    finalSummary.participants = participants;
+
+// ✅ NEW: ajout "qui parle"
+    finalSummary.speakers = speakers;
+    finalSummary.verbatims = verbatims;
+
+
 
     // 5) si trop court, on étend le compte-rendu étendu
     const base =
         finalSummary.compte_rendu_etendu || finalSummary.compteRendu || "";
     if (countWords(base) < minWords) {
-        const expandSystem = `
-Tu allonges ce compte-rendu **sans inventer**. Reste entre ${minWords}-${maxWords} mots.
-Style narratif professionnel, paragraphes complets, pas de listes.`;
+        const expandSystem = `Tu allonges ce compte-rendu **sans inventer** de nouvelles informations factuelles.
+Reste entre ${minWords}-${maxWords} mots.
+RÈGLES :
+- Tu ne dois PAS ajouter ni modifier de dates, d'horaires ou de noms de participants.
+- Si le texte d'entrée ne contient pas d'heure précise, tu n'en ajoutes pas.
+- Utilise un style narratif professionnel avec des paragraphes complets, sans listes.\``;
         const expandUser = `TEXTE:\n"""${base}"""`;
 
         const openai = getOpenAIClient();
@@ -328,7 +403,11 @@ Style narratif professionnel, paragraphes complets, pas de listes.`;
     if (!finalSummary.contenu_detaille || finalSummary.contenu_detaille.length < 500) {
         const expandSystemDetail = `
 Tu réécris ce compte-rendu détaillé en 4–8 paragraphes, style professionnel,
-sans inventer d'informations, avec précision chronologique.`;
+sans inventer d'informations ni modifier les faits.
+RÈGLES :
+- Ne crée ni ne modifie aucune date, aucun horaire, aucun lieu, aucun nom de participant.
+- Si le texte d'entrée ne donne pas d'heure précise, tu n'en ajoutes pas.
+- Tu améliores uniquement la clarté, la structure et le niveau de détail, pas le contenu factuel.`;
         const expandUserDetail = `TEXTE:\n"""${finalSummary.compte_rendu_etendu || base}"""`;
 
         const openai = getOpenAIClient();

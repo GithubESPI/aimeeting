@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { redirect, notFound } from "next/navigation";
 import { format, differenceInMinutes } from "date-fns";
 import { fr } from "date-fns/locale";
+import { toZonedTime } from "date-fns-tz";
+
 
 import {
     Card,
@@ -19,7 +21,7 @@ import { GenerateSummaryButton } from "@/components/meetings/generate-summary-bu
 import { ClientSummary } from "@/components/meetings/client-summary";
 import { MeetingSummaryClient } from "@/app/meetings/[id]/meeting-summary-client";
 import React from "react";
-import {isAdmin} from "@/lib/roles";
+import { isAdmin } from "@/lib/roles";
 
 /* ------- Types ------- */
 
@@ -211,9 +213,17 @@ export default async function MeetingDetailPage({ params }: PageProps) {
         ? "Réunion Teams"
         : "Réunion présentielle";
 
-    const start = meeting.startDateTime ?? meeting.createdAt;
-    const end = meeting.endDateTime ?? null;
+    // ------- ⬇️ Gestion du fuseau horaire Europe/Paris ⬇️ -------
+    const timeZone = "Europe/Paris";
+
+    const startUtc = meeting.startDateTime ?? meeting.createdAt;
+    const endUtc = meeting.endDateTime ?? null;
+
+    const start = toZonedTime(startUtc, timeZone);
+    const end = endUtc ? toZonedTime(endUtc, timeZone) : null;
+
     const durationMinutes = end ? differenceInMinutes(end, start) : null;
+    // ------- ⬆️ Gestion du fuseau horaire Europe/Paris ⬆️ -------
 
     const participantList: ParticipantFromDb[] =
         (meeting.attendees ?? [])
@@ -273,18 +283,18 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                         <StatusBadge status={meeting.status} />
 
                         <span className="text-light-200">
-              {format(start, "EEEE d MMMM yyyy · HH:mm", { locale: fr })}
-            </span>
+                            {format(start, "EEEE d MMMM yyyy · HH:mm", { locale: fr })}
+                        </span>
 
                         {durationMinutes !== null && (
                             <span className="text-light-200">
-                · Durée approx. {durationMinutes} min
-              </span>
+                                · Durée approx. {durationMinutes} min
+                            </span>
                         )}
 
                         <span className="ml-2 rounded-full bg-dark-200 px-3 py-1 text-[11px] uppercase tracking-wide text-light-200">
-              {isOrganizer ? "Organisateur" : "Participant"}
-            </span>
+                            {isOrganizer ? "Organisateur" : "Participant"}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -327,8 +337,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                     </Badge>
                                 ) : (
                                     <span className="text-light-200 text-xs">
-                    Non détectée
-                  </span>
+                                        Non détectée
+                                    </span>
                                 )}
                             </DetailItem>
 
@@ -339,8 +349,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                     </Badge>
                                 ) : (
                                     <span className="text-light-200 text-xs">
-                    Non détecté
-                  </span>
+                                        Non détecté
+                                    </span>
                                 )}
                             </DetailItem>
 
@@ -393,11 +403,11 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                         >
                                             <div className="flex flex-col">
                                                 <span className="text-sm">
-                                                  {p.displayName || p.email}
+                                                    {p.displayName || p.email}
                                                 </span>
                                                 <span className="text-xs text-light-200">
-                          {p.email}
-                        </span>
+                                                    {p.email}
+                                                </span>
                                             </div>
                                         </li>
                                     ))}
@@ -417,8 +427,8 @@ export default async function MeetingDetailPage({ params }: PageProps) {
 
                         {fullTranscript ? (
                             <pre className="mt-4 whitespace-pre-wrap text-sm text-light-100 max-h-[420px] overflow-y-auto">
-                {fullTranscript}
-              </pre>
+                                {fullTranscript}
+                            </pre>
                         ) : (
                             <p className="mt-4 text-sm text-light-200">
                                 Aucune transcription disponible.

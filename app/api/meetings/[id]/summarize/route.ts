@@ -36,7 +36,15 @@ export async function POST(
         // 2) On récupère la réunion
         const meeting = await prisma.meeting.findUnique({
             where: { id: meetingId },
+            include: {
+                attendees: {
+                    include: {
+                        participant: true,
+                    },
+                },
+            },
         });
+
 
         if (!meeting) {
             return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
@@ -51,13 +59,27 @@ export async function POST(
             );
         }
 
+        // 🔹 Participants réels de la réunion
+        const participants =
+            meeting.attendees
+                ?.map((a) => a.participant?.displayName || a.participant?.email)
+                .filter(Boolean) as string[] || [];
+
+
         // 4) Appel OpenAI via notre helper (qui fait aussi le post-processing)
         const summaryJson = await summarizeTranscript(fullTranscript, {
             title: meeting.title || "Réunion sans titre",
-            // tu peux ajuster ces valeurs si tu veux
             minWords: 1200,
             maxWords: 1800,
+
+            // ✅ DONNÉES FIABLES (PAS OPENAI)
+            meetingDateISO: meeting.startDateTime
+                ? meeting.startDateTime.toISOString()
+                : undefined,
+
+            participants,
         });
+
 
         // 5) Sauvegarde en BDD
         await prisma.meeting.update({
