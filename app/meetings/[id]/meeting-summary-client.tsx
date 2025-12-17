@@ -7,10 +7,15 @@ import { Download, Send } from "lucide-react";
 
 type Props = {
     meetingId: string;
+    isOrganizer: boolean;
 };
 
-export function MeetingSummaryClient({ meetingId }: Props) {
+export function MeetingSummaryClient({ meetingId, isOrganizer }: Props) {
     const [sending, setSending] = useState(false);
+
+    if (!isOrganizer) {
+        return null;
+    }
 
     async function handleSendEmails() {
         try {

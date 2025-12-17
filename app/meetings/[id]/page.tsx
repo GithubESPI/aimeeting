@@ -187,6 +187,7 @@ async function ensureFullTranscript(
 
 export default async function MeetingDetailPage({ params }: PageProps) {
     const { id } = params;
+
     const session = await getServerSession(authOptions);
     if (!session || !session.user?.email) {
         redirect("/");
@@ -455,11 +456,11 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                     <StatusBadge status={meeting.status} />
 
                                     {meeting.summaryJson && (
-                                        <MeetingSummaryClient meetingId={id} />
+                                        <MeetingSummaryClient meetingId={id} isOrganizer={isOrganizer} />
                                     )}
                                 </div>
 
-                                {!hasSummary && (
+                                {isOrganizer && !hasSummary && (
                                     <GenerateSummaryButton
                                         meetingId={id}
                                         disabled={
@@ -483,6 +484,7 @@ export default async function MeetingDetailPage({ params }: PageProps) {
                                     meetingId={id}
                                     initialSummary={meeting.summaryJson}
                                     participants={participantsFromDb}
+                                    isOrganizer={isOrganizer}
                                 />
                             ) : (
                                 <p className="text-xs text-light-200">

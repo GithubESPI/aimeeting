@@ -112,18 +112,22 @@ function SummaryReadOnly({ summary, participants }: SummaryReadOnlyProps) {
 export function ClientSummary({
                                   meetingId,
                                   initialSummary,
-                                  // 🔥 nouveau : participants passés par la page serveur
                                   participants,
+                                  isOrganizer,
                               }: {
     meetingId: string;
     initialSummary: Summary;
     participants?: string[];
+    isOrganizer: boolean; // ✅ NEW
 }) {
+
     const router = useRouter();
     const [editMode, setEditMode] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
+    if (!isOrganizer && editMode) {
+        setEditMode(false);
+    }
     // clone profond de la synthèse pour ne pas muter la prop
     const [summaryDraft, setSummaryDraft] = useState<Summary>(() =>
         JSON.parse(JSON.stringify(initialSummary ?? {}))
@@ -234,16 +238,17 @@ export function ClientSummary({
     if (!editMode) {
         return (
             <div className="space-y-4">
-                <div className="flex justify-end">
-                    <button
-                        type="button"
-                        onClick={() => setEditMode(true)}
-                        className="inline-flex items-center rounded-md border border-border-dark bg-dark-200 px-3 py-1 text-xs text-light-100 hover:bg-dark-300 transition-colors"
-                    >
-                        Modifier la synthèse
-                    </button>
-                </div>
-
+                {isOrganizer && (
+                    <div className="flex justify-end">
+                        <button
+                            type="button"
+                            onClick={() => setEditMode(true)}
+                            className="inline-flex items-center rounded-md border border-border-dark bg-dark-200 px-3 py-1 text-xs text-light-100 hover:bg-dark-300 transition-colors"
+                        >
+                            Modifier la synthèse
+                        </button>
+                    </div>
+                )}
                 {/* 🔥 on passe les participants pour l’affichage */}
                 <SummaryReadOnly summary={summaryDraft} participants={participants} />
             </div>
