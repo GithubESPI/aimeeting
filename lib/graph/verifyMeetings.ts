@@ -46,7 +46,7 @@ export async function verifyMeetingsTranscripts(session: Session) {
         try {
             const list = (await client
                 .api(
-                    `/me/onlineMeetings/${encodeURIComponent(
+                    `/users/{userId}/onlineMeetings/${encodeURIComponent(
                         m.onlineMeetingId
                     )}/transcripts`
                 )

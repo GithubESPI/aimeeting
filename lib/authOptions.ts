@@ -140,26 +140,9 @@ export const authOptions: NextAuthOptions = {
             return true;
         },
 
+
         async jwt({ token, account }) {
-            // 🔹 Login initial
             if (account) {
-                let roles: string[] = [];
-
-                const idToken = (account as any).id_token as string | undefined;
-                if (idToken) {
-                    try {
-                        const decoded: any = jwtDecode(idToken);
-                        const rawRoles =
-                            decoded.roles ||
-                            decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"] ||
-                            [];
-
-                        roles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
-                    } catch (e) {
-                        console.warn("[auth] Impossible de décoder id_token pour les rôles :", e);
-                    }
-                }
-
                 const expiresIn =
                     (account as any).expires_in ??
                     (account as any).ext_expires_in ??
@@ -168,14 +151,11 @@ export const authOptions: NextAuthOptions = {
                 return {
                     ...token,
                     accessToken: (account as any).access_token,
-                    // ❌ plus de refreshToken dans le JWT/cookie
                     accessTokenExpires: Date.now() + expiresIn * 1000,
-                    roles,
                     error: undefined,
                 };
             }
 
-            // 🔹 Token encore valide -> on le garde
             if (
                 typeof token.accessTokenExpires === "number" &&
                 Date.now() < token.accessTokenExpires
@@ -183,22 +163,15 @@ export const authOptions: NextAuthOptions = {
                 return token;
             }
 
-            // 🔹 Token expiré -> on tente un refresh avec Azure AD
             const refreshed = await refreshAccessToken(token);
             return refreshed;
         },
-
         async session({ session, token }) {
-            (session as any).accessToken = token.accessToken as string | undefined;
+            (session as any).accessToken = token.accessToken;
             (session as any).error = token.error;
-
-            const roles = ((token as any).roles as string[]) ?? [];
-            (session.user as any).roles = roles;
-            const primaryRole = (roles[0] ?? "Participant").toString();
-            (session.user as any).role = primaryRole.toLowerCase();
-
             return session;
-        },
+        }
+
     }
 
 

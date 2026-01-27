@@ -4,16 +4,23 @@
 
 :root {
   /* Palette ESPI */
-  --color-blue: #F76A6A;           /* Bleu principal */
-  --color-light-100: #D3DBE9;      /* Gris clair (textes, sous-titres) */
-  --color-light-200: #8b9bb0;      /* Gris un peu plus sombre */
+  --color-blue: #F76A6A;
+  /* Bleu principal */
+  --color-light-100: #D3DBE9;
+  /* Gris clair (textes, sous-titres) */
+  --color-light-200: #8b9bb0;
+  /* Gris un peu plus sombre */
 
   /* Fond & cartes */
-  --background: #FFFFFF;        /* Fond sombre bleu nuit */
+  --background: #FFFFFF;
+  /* Fond sombre bleu nuit */
   --foreground: #ffffff;
-  --color-dark-100: #005E83;    /* Cartes / blocs (bleu principal assombri) */
-  --color-dark-200: #04213C;    /* Cartes contrastées */
-  --color-border-dark: #0f2633; /* Bordures cartes/verres */
+  --color-dark-100: #005E83;
+  /* Cartes / blocs (bleu principal assombri) */
+  --color-dark-200: #04213C;
+  /* Cartes contrastées */
+  --color-border-dark: #0f2633;
+  /* Bordures cartes/verres */
 
   /* Shadcn / Tailwind design tokens */
   --radius: 0.625rem;
@@ -26,18 +33,21 @@
 
   /* On utilise le bleu ESPI comme primary */
   /* UI / Boutons */
-  --primary: #005E83;           /* Bouton principal */
+  --primary: #005E83;
+  /* Bouton principal */
   --primary-foreground: #ffffff;
 
   /* Variantes */
-  --secondary: #88D2E3;         /* Boutons secondaires */
+  --secondary: #88D2E3;
+  /* Boutons secondaires */
   --secondary-foreground: #04213C;
 
   --muted: #D3DBE9;
   --muted-foreground: #8b9bb0;
 
   /* Spécifiques */
-  --destructive: #D84795;       /* Pour warnings / erreurs stylées ESPI */
+  --destructive: #EF5350;
+  /* Pour warnings / erreurs stylées ESPI */
 
   /* Divers */
   --border: #0f2633;
@@ -162,7 +172,7 @@
   }
 
   #explore-btn {
-    @apply border-dark-200 bg-dark-100 flex w-fit cursor-pointer  rounded-full border px-8 py-3.5 max-sm:w-full text-center;
+    @apply border-dark-200 bg-dark-100 flex w-fit cursor-pointer rounded-full border px-8 py-3.5 max-sm:w-full text-center;
 
     a {
       @apply flex-center gap-2 text-center w-full;

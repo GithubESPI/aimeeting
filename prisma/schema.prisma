@@ -7,6 +7,18 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+/**
+ * ✅ NEW: Statuts normalisés (au lieu de String)
+ */
+enum MeetingStatus {
+  CREATED
+  TRANSCRIPT_READY
+  SUMMARY_READY
+  PDF_READY
+  SENT
+  FAILED
+}
+
 model User {
   id            String       @id @default(cuid())
   name          String?
@@ -16,9 +28,13 @@ model User {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
   isAdmin       Boolean      @default(false)
+
   accounts      Account[]
   participant   Participant?
   sessions      Session[]
+
+  // ✅ NEW: relation vers les meetings "possédés" par cet utilisateur (dashboard)
+  meetings      Meeting[]
 }
 
 model Account {
@@ -57,42 +73,72 @@ model VerificationToken {
 }
 
 model Meeting {
-  id                 String    @id @default(cuid())
+  id                 String        @id @default(cuid())
+
+  // ✅ NEW: owner (pour "mes réunions" / dashboard)
+  userId             String?
+  user               User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   title              String
-  status             String    @default("created")
+  status             MeetingStatus @default(CREATED)
+
   audioUrl           String?
   transcript         String?
+
+  // ➜ champ existant (ok)
   summaryJson        Json?
+
+  // ✅ NEW: enrichir le stockage PDF (utile pour download / historique)
   reportUrl          String?
+  reportFilename     String?
+  lastPdfGeneratedAt DateTime?
+
   joinUrl            String?
   startDateTime      DateTime?
+  endDateTime        DateTime?
+
   organizerEmail     String?
   transcriptSource   String?
-  hasGraphTranscript Boolean   @default(false)
-  hasGraphRecording  Boolean   @default(false)
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  endDateTime        DateTime?
-  graphId            String?   @unique
-  onlineMeetingId    String?   @unique
+  hasGraphTranscript Boolean       @default(false)
+  hasGraphRecording  Boolean       @default(false)
 
-  // ➜ nouveau champ
-  fullTranscript String? // <---
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
 
-  transcriptRaw Json?
+  graphId            String?       @unique
+  onlineMeetingId    String?       @unique
 
-  attendees MeetingParticipant[]
-  segments  TranscriptSegment[]
+  // ➜ champ existant (ok)
+  fullTranscript     String?
+
+  transcriptRaw      Json?
+
+  // ✅ NEW: pour l’envoi d’email PDF aux participants
+  participantsEmails Json?         // ex: ["a@x.com","b@y.com"]
+  lastEmailSentAt    DateTime?
+
+  attendees          MeetingParticipant[]
+  segments           TranscriptSegment[]
+
+  // ✅ NEW: logs d’envoi (debug, historique)
+  emailLogs          EmailLog[]
+
+  @@index([userId])
+  @@index([startDateTime])
 }
 
 model Participant {
   id             String               @id @default(cuid())
-  displayName    String
+
+  // ✅ RECO: Graph peut renvoyer null -> on rend optionnel + fallback côté code
+  displayName    String?
+
   email          String?              @unique
   userId         String?              @unique
   voiceProfileId String?              @unique
   createdAt      DateTime             @default(now())
   updatedAt      DateTime             @updatedAt
+
   meetings       MeetingParticipant[]
   user           User?                @relation(fields: [userId], references: [id])
   segments       TranscriptSegment[]
@@ -105,11 +151,13 @@ model MeetingParticipant {
   role           String?
   present        Boolean     @default(true)
   responseStatus String?
+
   meeting        Meeting     @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participant    Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@unique([meetingId, participantId])
   @@index([meetingId])
+  @@index([participantId])
 }
 
 model TranscriptSegment {
@@ -120,9 +168,29 @@ model TranscriptSegment {
   startMs         Int
   endMs           Int
   text            String
+
   meeting         Meeting      @relation(fields: [meetingId], references: [id], onDelete: Cascade)
   participant     Participant? @relation(fields: [participantId], references: [id])
 
   @@index([meetingId])
   @@index([participantId])
+}
+
+/**
+ * ✅ NEW: Historique des envois email (Mail.Send)
+ * Permet d'afficher dans le dashboard: envoyé/échoué, à qui, quand, etc.
+ */
+model EmailLog {
+  id        String   @id @default(cuid())
+  meetingId String
+  meeting   Meeting  @relation(fields: [meetingId], references: [id], onDelete: Cascade)
+
+  status    String   // "SENT" | "FAILED" (simple) ou tu peux faire un enum si tu veux
+  to        Json     // ex: ["a@x.com","b@y.com"]
+  subject   String
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([meetingId])
+  @@index([createdAt])
 }

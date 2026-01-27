@@ -1,112 +1,148 @@
 // app/api/meetings/route.ts
-import { NextRequest, NextResponse } from "next/server";
+// ✅ Version corrigée avec les bons types TypeScript et syntaxe Prisma
+
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
-import { prisma } from "@/lib/prisma";
-import { isAdmin, isOrganizer } from "@/lib/roles";
+import { Prisma } from "@prisma/client";
 
-export async function POST(req: NextRequest) {
-    const session = await getServerSession(authOptions);
+export const dynamic = "force-dynamic";
 
-    if (!session?.user?.email) {
-        return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
-
-    const email = session.user.email.toLowerCase();
-
-    const admin = isAdmin(session);
-    const organizerRole = isOrganizer(session);
-
-    // 🔒 Seuls ADMIN et ORGANIZER peuvent créer une réunion
-    if (!admin && !organizerRole) {
-        return NextResponse.json(
-            { error: "Seuls les administrateurs et organisateurs peuvent créer une réunion." },
-            { status: 403 }
-        );
-    }
-
-    const body = await req.json().catch(() => null);
-    if (!body) {
-        return NextResponse.json({ error: "Body JSON invalide" }, { status: 400 });
-    }
-
-    const {
-        title,
-        organizerEmail,
-        localRecordingUrl,
-        notes,
-        type,
-    }: {
-        title?: string;
-        organizerEmail?: string | null;
-        localRecordingUrl?: string | null;
-        notes?: string | null;
-        type?: string | null;
-    } = body;
-
-    if (!title || title.trim() === "") {
-        return NextResponse.json(
-            { error: "Le titre est obligatoire." },
-            { status: 400 }
-        );
-    }
-
+export async function GET(req: Request) {
     try {
-        const meeting = await prisma.meeting.create({
-            data: {
-                title: title.trim(),
-                // si organizerEmail n'est pas fourni, on prend l'utilisateur connecté
-                organizerEmail: (organizerEmail ?? email) || null,
-                audioUrl: localRecordingUrl ?? null,
-                status: "created",
-                // meeting_type: type ?? "presentiel",
-            },
-        });
+        const session = await getServerSession(authOptions);
 
-        return NextResponse.json(meeting);
-    } catch (e: any) {
-        console.error("POST /api/meetings error", e);
-        return NextResponse.json(
-            { error: "Erreur serveur lors de la création de la réunion." },
-            { status: 500 }
-        );
-    }
-}
+        if (!session?.user) {
+            return NextResponse.json(
+                { error: "Non authentifié" },
+                { status: 401 }
+            );
+        }
 
-// 🔹 GET pour lister les réunions (filtré selon le rôle)
-export async function GET() {
-    const session = await getServerSession(authOptions);
+        const userId = (session.user as any).id;
+        const userEmail = session.user.email?.toLowerCase();
 
-    if (!session?.user?.email) {
-        return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
-    }
+        const { searchParams } = new URL(req.url);
+        const statusFilter = searchParams.get("status");
+        const limit = parseInt(searchParams.get("limit") ?? "100", 10);
+        const withSummary = searchParams.get("withSummary") === "true";
 
-    const email = session.user.email.toLowerCase();
-    const admin = isAdmin(session);
-
-    const meetings = await prisma.meeting.findMany({
-        where: admin
-            ? {} // 👑 Admin → toutes les réunions
-            : {
-                OR: [
-                    // 👉 Réunions où l’utilisateur est organisateur
-                    { organizerEmail: email },
-
-                    // 👉 Réunions où l’utilisateur est participant
-                    {
-                        attendees: {
-                            some: {
-                                participant: {
-                                    email,
-                                },
+        // ✅ Construction du where clause
+        const whereClause: Prisma.MeetingWhereInput = {
+            OR: [
+                // Propriétaire
+                { userId },
+                // Participant via la table de liaison
+                {
+                    attendees: {
+                        some: {
+                            participant: {
+                                email: userEmail,
                             },
                         },
                     },
-                ],
-            },
-        orderBy: { createdAt: "desc" },
-        take: 100,
-    });
+                },
+            ],
+        };
 
-    return NextResponse.json(meetings);
+        // Filtres optionnels
+        if (statusFilter) {
+            whereClause.status = statusFilter as any;
+        }
+
+        if (withSummary) {
+            whereClause.summaryJson = { not: Prisma.DbNull };
+        }
+
+        // ✅ Récupérer les réunions
+        const meetings = await prisma.meeting.findMany({
+            where: whereClause,
+            include: {
+                attendees: {
+                    include: {
+                        participant: {
+                            select: {
+                                id: true,
+                                displayName: true,
+                                email: true,
+                            },
+                        },
+                    },
+                },
+                emailLogs: {
+                    select: {
+                        id: true,
+                        status: true,
+                        createdAt: true,
+                    },
+                    orderBy: {
+                        createdAt: "desc",
+                    },
+                    take: 1,
+                },
+            },
+            orderBy: {
+                startDateTime: "desc",
+            },
+            take: limit,
+        });
+
+        // ✅ Formater les données pour le frontend
+        const formattedMeetings = meetings.map((m) => ({
+            id: m.id,
+            title: m.title,
+            status: m.status,
+            startDateTime: m.startDateTime?.toISOString() ?? null,
+            endDateTime: m.endDateTime?.toISOString() ?? null,
+            organizerEmail: m.organizerEmail,
+            joinUrl: m.joinUrl,
+
+            // Indicateurs
+            hasSummary: m.summaryJson !== null,
+            hasTranscript: m.transcript !== null || m.fullTranscript !== null,
+            hasGraphTranscript: m.hasGraphTranscript,
+            hasGraphRecording: m.hasGraphRecording,
+
+            // Participants
+            participantsEmails: (m.participantsEmails as any) ?? null,
+            attendeesCount: m.attendees.length,
+            attendees: m.attendees.map((a) => ({
+                id: a.id,
+                role: a.role,
+                present: a.present,
+                responseStatus: a.responseStatus,
+                participant: {
+                    id: a.participant.id,
+                    displayName: a.participant.displayName,
+                    email: a.participant.email,
+                },
+            })),
+
+            // Métadonnées
+            createdAt: m.createdAt.toISOString(),
+            updatedAt: m.updatedAt.toISOString(),
+            lastEmailSentAt: m.lastEmailSentAt?.toISOString() ?? null,
+            lastPdfGeneratedAt: m.lastPdfGeneratedAt?.toISOString() ?? null,
+
+            // Dernier email envoyé
+            lastEmailLog: m.emailLogs[0] ?? null,
+        }));
+
+        return NextResponse.json({
+            user: {
+                id: userId,
+                email: userEmail,
+                name: session.user.name,
+            },
+            count: formattedMeetings.length,
+            meetings: formattedMeetings,
+        });
+    } catch (e: any) {
+        console.error("[API] /api/meetings error:", e);
+        return NextResponse.json(
+            { error: e?.message ?? "Erreur serveur" },
+            { status: 500 }
+        );
+    }
 }

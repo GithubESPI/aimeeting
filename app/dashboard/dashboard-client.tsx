@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Navbar from "@/components/Navbar";
+import React from "react";
 
 type UserInfo = {
     name: string;
@@ -48,6 +49,21 @@ type Props = {
 export default function DashboardClient({ user, meetings, stats }: Props) {
     //console.log("📌 Meetings reçues par le dashboard :", meetings);
     const { total, processed, pending } = stats;
+
+    const meetingsWithSummary = React.useMemo(() => {
+        return (meetings ?? []).filter((m) => {
+            const s: any = m.summaryJson;
+            if (!s) return false;
+
+            return Boolean(
+                s.titre ||
+                s.synthese_4_5_lignes ||
+                (Array.isArray(s.compte_rendu_10_points_developpes) && s.compte_rendu_10_points_developpes.length > 0) ||
+                (Array.isArray(s.decisions) && s.decisions.length > 0)
+            );
+        });
+    }, [meetings]);
+
 
     const initials =
         user.name
@@ -152,21 +168,18 @@ export default function DashboardClient({ user, meetings, stats }: Props) {
                     </CardHeader>
 
                     <CardContent className="pt-0">
-                        {meetings.length === 0 ? (
+                        {meetingsWithSummary.length === 0 ? (
                             <div className="flex-center py-12 text-sm text-light-200">
                                 Aucune synthèse IA pour le moment. Lancez une réunion ou
                                 générez une synthèse depuis vos réunions Teams.
                             </div>
                         ) : (
                             <div className="grid gap-4 md:grid-cols-2">
-                                {meetings.map((m) => {
+                                {meetingsWithSummary.map((m) => {
                                     const summary = (m.summaryJson ?? {}) as any; // 👈 plutôt que (m.summaryJson || {})
 
-                                    const resume: string =
-                                        summary.resume ||
-                                        summary.resumé ||
-                                        summary.resumé_rapide ||
-                                        "";
+                                    const resume: string = summary.synthese_4_5_lignes || "";
+
 
                                     const resumePreview =
                                         resume.length > 260 ? resume.slice(0, 260) + "…" : resume;
