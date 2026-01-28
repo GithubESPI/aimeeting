@@ -18,21 +18,23 @@ import {
     CheckCircle2,
     Loader2
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 type Meeting = {
+    id: string; // ✅ AJOUTE ÇA
     subject: string;
     start: { dateTime: string; timeZone: string };
     end: { dateTime: string; timeZone: string };
     organizer: { emailAddress: { name: string; address: string } };
     isOnlineMeeting: boolean;
-    onlineMeeting?: {
-        joinUrl: string;
-    };
+    onlineMeeting?: { joinUrl: string };
     attendees?: Array<{
         emailAddress: { name: string; address: string };
         type: string;
     }>;
+    hasTranscript?: boolean; // optionnel
 };
+
 
 type ApiResponse = {
     email: string;
@@ -43,6 +45,7 @@ type ApiResponse = {
 export default function AdminDebugMeetingsPage() {
     const { data: session } = useSession();
     const [email, setEmail] = React.useState("l.vaughn@groupe-espi.fr");
+    const router = useRouter();
     const [startDate, setStartDate] = React.useState("2026-01-01");
     const [endDate, setEndDate] = React.useState("2026-12-31");
     const [loading, setLoading] = React.useState(false);

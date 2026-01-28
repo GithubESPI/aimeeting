@@ -287,14 +287,16 @@ export async function POST(req: Request) {
 
         const decisions = (data.decisions ?? []).filter(Boolean);
         if (decisions.length > 0) {
-            sectionTitle("Décisions prises", red);
+
             bulletBox("Décisions prises", decisions, darkTeal);
+        } else {
+            sectionTitle("Décisions prises", red);
         }
 
         // ✅ Affichage amélioré des tâches
         const taches = (data.taches ?? []).filter(Boolean);
         if (taches.length > 0) {
-            sectionTitle("Tâches à réaliser");
+
             const tachesFormatted = taches.map((t) => {
                 let str = t.tache;
                 if (t.owner && t.owner !== "Non précisé") str += ` (Owner: ${t.owner})`;
@@ -302,6 +304,8 @@ export async function POST(req: Request) {
                 return str;
             });
             bulletBox("Tâches à réaliser", tachesFormatted, darkTeal);
+        } else {
+            sectionTitle("Tâches à réaliser");
         }
 
         sectionTitle("Contenu détaillé de la réunion");
