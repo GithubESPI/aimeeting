@@ -1,8 +1,11 @@
 // app/meetings/[id]/page.tsx
+// ✅ Avec restriction : seul l'organisateur peut générer une synthèse
+
 "use client";
 
 import * as React from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +22,8 @@ import {
     CheckCircle2,
     AlertCircle,
     Loader2,
-    Sparkles
+    Sparkles,
+    ShieldAlert
 } from "lucide-react";
 import { formatParticipants } from "@/lib/participants";
 import { cn } from "@/lib/utils";
@@ -100,7 +104,7 @@ function formatDateTime(iso: string | null) {
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
-        timeZone: "UTC", // ✅ AJOUTEZ CETTE LIGNE
+        timeZone: "UTC",
     }).format(d);
 }
 
@@ -126,6 +130,10 @@ export default function MeetingDetailPage() {
     const router = useRouter();
     const meetingId = params.id as string;
 
+    // ✅ Récupérer la session pour connaître l'email de l'utilisateur connecté
+    const { data: session } = useSession();
+    const currentUserEmail = session?.user?.email?.toLowerCase();
+
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
     const [meeting, setMeeting] = React.useState<Meeting | null>(null);
@@ -150,6 +158,12 @@ export default function MeetingDetailPage() {
     // ✅ États pour la génération de synthèse
     const [generatingSummary, setGeneratingSummary] = React.useState(false);
     const [summaryError, setSummaryError] = React.useState<string | null>(null);
+
+    // ✅ Vérifier si l'utilisateur connecté est l'organisateur
+    const isOrganizer = React.useMemo(() => {
+        if (!meeting?.organizerEmail || !currentUserEmail) return false;
+        return meeting.organizerEmail.toLowerCase() === currentUserEmail;
+    }, [meeting?.organizerEmail, currentUserEmail]);
 
     React.useEffect(() => {
         fetchMeeting();
@@ -249,6 +263,12 @@ export default function MeetingDetailPage() {
     async function generateSummaryFromTranscript() {
         if (!meeting || !transcriptDialog.data?.parsed) return;
 
+        // ✅ Vérifier que l'utilisateur est l'organisateur
+        if (!isOrganizer) {
+            setSummaryError("Seul l'organisateur de la réunion peut générer une synthèse.");
+            return;
+        }
+
         setGeneratingSummary(true);
         setSummaryError(null);
 
@@ -273,12 +293,10 @@ export default function MeetingDetailPage() {
             // ✅ Créer une map email -> nom pour associer les speakers avec leurs emails
             const emailToName = new Map<string, string>();
             for (const speaker of speakersFromTranscript) {
-                // Chercher l'email correspondant dans participantsEmails
                 const participantEmails = meeting.participantsEmails as string[] || [];
                 const email = participantEmails.find((e: string) => {
                     const namePart = e.split('@')[0].toLowerCase().replace(/[._-]/g, ' ');
                     const speakerLower = speaker.toLowerCase();
-                    // Match si le speaker contient une partie du nom de l'email
                     return speakerLower.includes(namePart) || namePart.includes(speakerLower);
                 });
                 if (email) {
@@ -308,11 +326,11 @@ export default function MeetingDetailPage() {
                     ? `${new Date(meeting.startDateTime).toLocaleTimeString("fr-FR", {
                         hour: "2-digit",
                         minute: "2-digit",
-                        timeZone: "UTC" // ✅ AJOUTEZ CECI
+                        timeZone: "UTC"
                     })} - ${new Date(meeting.endDateTime).toLocaleTimeString("fr-FR", {
                         hour: "2-digit",
                         minute: "2-digit",
-                        timeZone: "UTC" // ✅ ET CECI
+                        timeZone: "UTC"
                     })}`
                     : "Non précisé";
 
@@ -510,6 +528,9 @@ export default function MeetingDetailPage() {
         hasTranscript,
         transcriptRaw: meeting.transcriptRaw,
         hasSummary: !!summary,
+        isOrganizer,
+        currentUserEmail,
+        organizerEmail: meeting.organizerEmail,
     });
 
     return (
@@ -705,9 +726,15 @@ export default function MeetingDetailPage() {
                                 <p className="text-sm text-gray-600 mb-4">
                                     Cette réunion n&apos;a pas encore de compte-rendu généré.
                                 </p>
-                                {hasTranscript && (
+                                {hasTranscript && isOrganizer && (
                                     <p className="text-xs text-gray-500 mb-6">
                                         Cliquez sur &quot;Voir transcription&quot; puis &quot;Générer la synthèse&quot;
+                                    </p>
+                                )}
+                                {hasTranscript && !isOrganizer && (
+                                    <p className="text-xs text-amber-600 mb-6 flex items-center justify-center gap-2">
+                                        <ShieldAlert className="h-4 w-4" />
+                                        Seul l&apos;organisateur peut générer une synthèse
                                     </p>
                                 )}
                             </div>
@@ -837,25 +864,36 @@ export default function MeetingDetailPage() {
                         <DialogHeader>
                             <DialogTitle className="text-[var(--color-dark-100)]">{meeting.title}</DialogTitle>
                             <DialogDescription>Transcription de la réunion</DialogDescription>
-                            <div className="flex gap-2 mt-4">
-                                <Button
-                                    onClick={generateSummaryFromTranscript}
-                                    disabled={transcriptDialog.loading || generatingSummary || !transcriptDialog.data?.parsed?.length}
-                                    className="gap-2 bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white"
-                                >
-                                    {generatingSummary ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            Génération...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="h-4 w-4" />
-                                            Générer la synthèse
-                                        </>
-                                    )}
-                                </Button>
-                            </div>
+
+                            {/* ✅ Bouton conditionnel selon le rôle */}
+                            {isOrganizer ? (
+                                <div className="flex gap-2 mt-4">
+                                    <Button
+                                        onClick={generateSummaryFromTranscript}
+                                        disabled={transcriptDialog.loading || generatingSummary || !transcriptDialog.data?.parsed?.length}
+                                        className="gap-2 bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white"
+                                    >
+                                        {generatingSummary ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Génération...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="h-4 w-4" />
+                                                Générer la synthèse
+                                            </>
+                                        )}
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                                    <p className="text-sm text-amber-800 flex items-center gap-2">
+                                        <ShieldAlert className="h-4 w-4" />
+                                        Seul l&apos;organisateur ({meeting.organizerEmail}) peut générer une synthèse IA.
+                                    </p>
+                                </div>
+                            )}
                         </DialogHeader>
 
                         <ScrollArea className="h-[60vh] pr-4">
