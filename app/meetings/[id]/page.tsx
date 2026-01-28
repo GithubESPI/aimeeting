@@ -100,9 +100,9 @@ function formatDateTime(iso: string | null) {
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "UTC", // ✅ AJOUTEZ CETTE LIGNE
     }).format(d);
 }
-
 
 function formatStatus(status: string): string {
     const normalized = status.toUpperCase();
@@ -305,9 +305,15 @@ export default function MeetingDetailPage() {
 
             const heure =
                 meeting.startDateTime && meeting.endDateTime
-                    ? `${new Date(meeting.startDateTime).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} - ${new Date(
-                        meeting.endDateTime
-                    ).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
+                    ? `${new Date(meeting.startDateTime).toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "UTC" // ✅ AJOUTEZ CECI
+                    })} - ${new Date(meeting.endDateTime).toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        timeZone: "UTC" // ✅ ET CECI
+                    })}`
                     : "Non précisé";
 
             console.log("🤖 Génération de la synthèse IA...");

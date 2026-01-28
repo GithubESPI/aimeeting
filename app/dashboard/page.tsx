@@ -48,11 +48,12 @@ function formatDateTime(iso: string | null) {
     if (!iso) return "—";
     const d = new Date(iso);
     return new Intl.DateTimeFormat("fr-FR", {
-        day: "2-digit",
-        month: "short",
+        day: "numeric",
+        month: "long",
         year: "numeric",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "UTC", // ✅ AJOUTEZ CETTE LIGNE
     }).format(d);
 }
 

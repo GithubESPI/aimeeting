@@ -72,7 +72,11 @@ function formatDate(iso: string | null) {
 function formatTime(iso: string | null) {
     if (!iso) return "—";
     const d = new Date(iso);
-    return new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" }).format(d);
+    return new Intl.DateTimeFormat("fr-FR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        timeZone: "UTC" // ✅ AJOUTEZ CETTE LIGNE
+    }).format(d);
 }
 
 function formatStatus(status: string): string {
