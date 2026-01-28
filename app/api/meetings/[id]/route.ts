@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
+import { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +133,71 @@ export async function GET(
         });
     } catch (e: any) {
         console.error("[API] /api/meetings/[id] error:", e);
+        return NextResponse.json(
+            { error: e?.message ?? "Erreur serveur" },
+            { status: 500 }
+        );
+    }
+}
+
+export async function PATCH(
+    req: Request,
+    { params }: { params: { id: string } }
+) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user) {
+            return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
+        }
+
+        const meetingId = params.id;
+        const userId = (session.user as any).id;
+        const userEmail = session.user.email?.toLowerCase();
+
+        const body = await req.json().catch(() => ({}));
+        const summaryJson = body?.summaryJson as Prisma.InputJsonValue | undefined;
+
+        if (!summaryJson) {
+            return NextResponse.json({ error: "summaryJson manquant" }, { status: 400 });
+        }
+
+        // ✅ Autorisation "test" : utilisateur connecté qui a accès à la réunion
+        // (propriétaire OU participant via attendees.participant.email)
+        const meeting = await prisma.meeting.findFirst({
+            where: {
+                id: meetingId,
+                OR: [
+                    { userId },
+                    {
+                        attendees: {
+                            some: {
+                                participant: {
+                                    email: userEmail,
+                                },
+                            },
+                        },
+                    },
+                ],
+            },
+            select: { id: true },
+        });
+
+        if (!meeting) {
+            return NextResponse.json({ error: "Réunion introuvable ou accès refusé" }, { status: 404 });
+        }
+
+        const updated = await prisma.meeting.update({
+            where: { id: meetingId },
+            data: {
+                summaryJson,
+                updatedAt: new Date(),
+            },
+            select: { id: true, summaryJson: true },
+        });
+
+        return NextResponse.json({ ok: true, meeting: updated });
+    } catch (e: any) {
+        console.error("[API] PATCH /api/meetings/[id]/summary error:", e);
         return NextResponse.json(
             { error: e?.message ?? "Erreur serveur" },
             { status: 500 }

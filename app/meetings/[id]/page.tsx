@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { formatParticipants } from "@/lib/participants";
 import { cn } from "@/lib/utils";
+import { Input } from "@/components/ui/input";
 
 
 type ActionItem = {
@@ -142,6 +143,13 @@ export default function MeetingDetailPage() {
     const [sendSuccess, setSendSuccess] = React.useState<string | null>(null);
     const [sendError, setSendError] = React.useState<string | null>(null);
 
+    const [editMode, setEditMode] = React.useState(false);
+    const [editedSummary, setEditedSummary] = React.useState<AiSummary | null>(null);
+    const [savingSummary, setSavingSummary] = React.useState(false);
+    const [saveSummaryError, setSaveSummaryError] = React.useState<string | null>(null);
+    const [saveSummarySuccess, setSaveSummarySuccess] = React.useState<string | null>(null);
+
+
     // ✅ Dialog transcription
     const [transcriptDialog, setTranscriptDialog] = React.useState<{
         open: boolean;
@@ -187,12 +195,59 @@ export default function MeetingDetailPage() {
 
             const json = await res.json();
             setMeeting(json.meeting);
+            setEditedSummary(json.meeting?.summaryJson ?? null);
+            setEditMode(false);
+            setSaveSummaryError(null);
+            setSaveSummarySuccess(null);
+
         } catch (e: any) {
             setError(e?.message ?? "Erreur lors du chargement");
         } finally {
             setLoading(false);
         }
     }
+
+    async function saveEditedSummary() {
+        if (!meeting?.id || !editedSummary) return;
+
+        setSavingSummary(true);
+        setSaveSummaryError(null);
+        setSaveSummarySuccess(null);
+
+        try {
+            const res = await fetch(`/api/meetings/${meeting.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                cache: "no-store",
+                body: JSON.stringify({ summaryJson: editedSummary }),
+            });
+
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(json?.error ?? "Erreur lors de l'enregistrement");
+
+            setSaveSummarySuccess("✅ Modifications enregistrées.");
+            setEditMode(false);
+
+            // re-sync UI depuis DB
+            await fetchMeeting();
+        } catch (e: any) {
+            setSaveSummaryError(e?.message ?? "Erreur lors de l'enregistrement");
+        } finally {
+            setSavingSummary(false);
+        }
+    }
+
+    function toMultiline(arr?: string[]) {
+        return (arr ?? []).join("\n");
+    }
+
+    // ✅ garde les lignes vides (ne filtre plus Boolean)
+    function fromMultilineKeepEmpty(text: string) {
+        // on garde tel quel, juste normalize
+        return text.replace(/\r\n/g, "\n").split("\n");
+    }
+
+
 
     // ✅ Ouvrir le dialog transcription
     async function openTranscriptDialog() {
@@ -259,15 +314,18 @@ export default function MeetingDetailPage() {
         }
     }
 
+    function fromMultilineKeepEmptyKeepEmpty(text: string) {
+        // garde les lignes vides pour permettre l'aération
+        return text.replace(/\r/g, "").split("\n");
+    }
+
+    function toMultilineKeepEmptyKeepEmpty(arr?: string[]) {
+        return (arr ?? []).join("\n");
+    }
+
     // ✅ Générer la synthèse depuis le dialog
     async function generateSummaryFromTranscript() {
         if (!meeting || !transcriptDialog.data?.parsed) return;
-
-        // ✅ Vérifier que l'utilisateur est l'organisateur
-        if (!isOrganizer) {
-            setSummaryError("Seul l'organisateur de la réunion peut générer une synthèse.");
-            return;
-        }
 
         setGeneratingSummary(true);
         setSummaryError(null);
@@ -757,23 +815,78 @@ export default function MeetingDetailPage() {
 
                             {summary.participants?.length > 0 && (
                                 <div className="mt-4 pt-4 border-t border-[var(--color-dark-100)]/10">
-                                    <p className="text-sm font-semibold text-white mb-3">
-                                        Participants :
-                                    </p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {formatParticipants(summary.participants).map((p, i) => (
-                                            <Badge
-                                                key={i}
-                                                variant="outline"
-                                                className="text-xs border-[var(--color-dark-100)]/30 text-[var(--color-dark-100)] bg-white"
-                                            >
-                                                {p.label}
-                                            </Badge>
-                                        ))}
+                                    <div className="flex items-center justify-between gap-4 flex-wrap">
+
+                                        {/* ⬅️ Participants */}
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="text-sm font-semibold text-white mr-2">
+                                                Participants :
+                                            </span>
+
+                                            {formatParticipants(summary.participants).map((p, i) => (
+                                                <Badge
+                                                    key={i}
+                                                    variant="outline"
+                                                    className="text-xs border-[var(--color-dark-100)]/30 text-[var(--color-dark-100)] bg-white"
+                                                >
+                                                    {p.label}
+                                                </Badge>
+                                            ))}
+                                        </div>
+
+                                        {/* ➡️ Boutons */}
+                                        <div className="flex gap-2 shrink-0">
+                                            {!editMode ? (
+                                                <Button
+                                                    onClick={() => {
+                                                        setEditedSummary(summary);
+                                                        setEditMode(true);
+                                                        setSaveSummaryError(null);
+                                                        setSaveSummarySuccess(null);
+                                                    }}
+                                                    variant="outline"
+                                                    className="border-white/30 text-white bg-green-600 hover:bg-green-700 hover:text-white"
+                                                >
+                                                    Modifier
+                                                </Button>
+                                            ) : (
+                                                <>
+                                                    <Button
+                                                        onClick={() => {
+                                                            setEditMode(false);
+                                                            setEditedSummary(summary);
+                                                            setSaveSummaryError(null);
+                                                            setSaveSummarySuccess(null);
+                                                        }}
+                                                        variant="outline"
+                                                        className="border-red-400 text-white bg-red-400 hover:bg-red-500 hover:text-white"
+                                                        disabled={savingSummary}
+                                                    >
+                                                        Annuler
+                                                    </Button>
+
+                                                    <Button
+                                                        onClick={saveEditedSummary}
+                                                        className="bg-white text-[var(--color-dark-100)] hover:bg-white/90"
+                                                        disabled={savingSummary}
+                                                    >
+                                                        {savingSummary ? "Enregistrement..." : "Enregistrer"}
+                                                    </Button>
+                                                </>
+                                            )}
+                                        </div>
+
                                     </div>
                                 </div>
                             )}
+
+
+
+
+
                         </CardHeader>
+
+
 
                         <CardContent className="space-y-8 pt-6">
                             {/* Synthèse */}
@@ -782,9 +895,22 @@ export default function MeetingDetailPage() {
                                     <FileText className="h-4 w-4" />
                                     Synthèse (4–5 lignes)
                                 </h3>
-                                <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
-                                    {summary.synthese_4_5_lignes}
-                                </p>
+                                {editMode ? (
+                                    <textarea
+                                        className="w-full min-h-[110px] rounded-md border border-gray-300 p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--color-dark-100)]"
+                                        value={editedSummary?.synthese_4_5_lignes ?? ""}
+                                        onChange={(e) =>
+                                            setEditedSummary((prev) =>
+                                                prev ? { ...prev, synthese_4_5_lignes: e.target.value } : prev
+                                            )
+                                        }
+                                    />
+                                ) : (
+                                    <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
+                                        {summary.synthese_4_5_lignes}
+                                    </p>
+                                )}
+
                             </div>
 
                             {/* Décisions */}
@@ -793,11 +919,26 @@ export default function MeetingDetailPage() {
                                     <CheckCircle2 className="h-4 w-4" />
                                     Décisions
                                 </h3>
-                                <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
-                                    {(summary.decisions?.length ? summary.decisions : ["Aucune décision formalisée"]).map((d, i) => (
-                                        <li key={i}>{d}</li>
-                                    ))}
-                                </ul>
+                                {editMode ? (
+                                    <textarea
+                                        className="w-full min-h-[120px] rounded-md border border-gray-300 p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--color-dark-100)]"
+                                        value={toMultiline(editedSummary?.decisions)}
+                                        onChange={(e) =>
+                                            setEditedSummary((prev) =>
+                                                prev ? { ...prev, decisions: fromMultilineKeepEmpty(e.target.value) } : prev
+                                            )
+                                        }
+
+                                        placeholder={"1 décision par ligne"}
+                                    />
+                                ) : (
+                                    <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                                        {(summary.decisions?.length ? summary.decisions : ["Aucune décision formalisée"]).map((d, i) => (
+                                            <li key={i}>{d}</li>
+                                        ))}
+                                    </ul>
+                                )}
+
                             </div>
 
                             {/* Tâches */}
@@ -806,22 +947,105 @@ export default function MeetingDetailPage() {
                                     <Users className="h-4 w-4" />
                                     Tâches à réaliser
                                 </h3>
-                                {summary.taches?.length ? (
-                                    <ul className="list-disc pl-5 space-y-3 text-sm">
-                                        {summary.taches.map((a, i) => (
-                                            <li key={i}>
-                                                <span className="font-semibold text-gray-900">{a.tache}</span>
-                                                <span className="text-gray-600">
-                                                    {" — Owner: "}
-                                                    <span className="text-[var(--color-dark-100)]">{a.owner || "Non précisé"}</span>
-                                                    {a.deadline ? ` • Deadline: ${a.deadline}` : ""}
-                                                </span>
-                                            </li>
+                                {editMode ? (
+                                    <div className="space-y-3">
+                                        {(editedSummary?.taches ?? []).map((t, idx) => (
+                                            <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                                                <Input
+                                                    value={t.tache ?? ""}
+                                                    onChange={(e) => {
+                                                        setEditedSummary((prev) => {
+                                                            if (!prev) return prev;
+                                                            const next = [...(prev.taches ?? [])];
+                                                            next[idx] = { ...next[idx], tache: e.target.value };
+                                                            return { ...prev, taches: next };
+                                                        });
+                                                    }}
+                                                    placeholder="Tâche"
+                                                />
+                                                <Input
+                                                    value={t.owner ?? ""}
+                                                    onChange={(e) => {
+                                                        setEditedSummary((prev) => {
+                                                            if (!prev) return prev;
+                                                            const next = [...(prev.taches ?? [])];
+                                                            next[idx] = { ...next[idx], owner: e.target.value };
+                                                            return { ...prev, taches: next };
+                                                        });
+                                                    }}
+                                                    placeholder="Owner"
+                                                />
+                                                <Input
+                                                    value={t.deadline ?? ""}
+                                                    onChange={(e) => {
+                                                        setEditedSummary((prev) => {
+                                                            if (!prev) return prev;
+                                                            const next = [...(prev.taches ?? [])];
+                                                            next[idx] = { ...next[idx], deadline: e.target.value || null };
+                                                            return { ...prev, taches: next };
+                                                        });
+                                                    }}
+                                                    placeholder="Deadline (optionnel)"
+                                                />
+                                            </div>
                                         ))}
-                                    </ul>
+
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setEditedSummary((prev) => {
+                                                        if (!prev) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            taches: [
+                                                                ...(prev.taches ?? []),
+                                                                { tache: "", owner: "", deadline: null },
+                                                            ],
+                                                        };
+                                                    });
+                                                }}
+                                            >
+                                                + Ajouter une tâche
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setEditedSummary((prev) => {
+                                                        if (!prev) return prev;
+                                                        const t = [...(prev.taches ?? [])];
+                                                        t.pop();
+                                                        return { ...prev, taches: t };
+                                                    });
+                                                }}
+                                                disabled={!(editedSummary?.taches?.length)}
+                                            >
+                                                - Supprimer la dernière
+                                            </Button>
+                                        </div>
+                                    </div>
                                 ) : (
-                                    <p className="text-sm text-gray-500">Aucune tâche formalisée.</p>
+                                    summary.taches?.length ? (
+                                        <ul className="list-disc pl-5 space-y-3 text-sm">
+                                            {summary.taches.map((a, i) => (
+                                                <li key={i}>
+                                                    <span className="font-semibold text-gray-900">{a.tache}</span>
+                                                    <span className="text-gray-600">
+                                                        {" — Owner: "}
+                                                        <span className="text-[var(--color-dark-100)]">{a.owner || "Non précisé"}</span>
+                                                        {a.deadline ? ` • Deadline: ${a.deadline}` : ""}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    ) : (
+                                        <p className="text-sm text-gray-500">Aucune tâche formalisée.</p>
+                                    )
                                 )}
+
                             </div>
 
                             {/* Compte-rendu 10 points */}
@@ -829,11 +1053,25 @@ export default function MeetingDetailPage() {
                                 <h3 className="font-bold text-[var(--color-dark-100)] mb-3">
                                     Compte-rendu (10 points)
                                 </h3>
-                                <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
-                                    {summary.compte_rendu_10_points?.map((b, i) => (
-                                        <li key={i}>{b}</li>
-                                    ))}
-                                </ul>
+                                {editMode ? (
+                                    <textarea
+                                        className="w-full min-h-[140px] rounded-md border border-gray-300 p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--color-dark-100)]"
+                                        value={toMultiline(editedSummary?.compte_rendu_10_points)}
+                                        onChange={(e) =>
+                                            setEditedSummary((prev) =>
+                                                prev ? { ...prev, compte_rendu_10_points: fromMultilineKeepEmpty(e.target.value) } : prev
+                                            )
+                                        }
+                                        placeholder={"1 point par ligne"}
+                                    />
+                                ) : (
+                                    <ul className="list-disc pl-5 space-y-2 text-sm text-gray-700">
+                                        {summary.compte_rendu_10_points?.map((b, i) => (
+                                            <li key={i}>{b}</li>
+                                        ))}
+                                    </ul>
+                                )}
+
                             </div>
 
                             {/* Compte-rendu développé */}
@@ -841,18 +1079,81 @@ export default function MeetingDetailPage() {
                                 <h3 className="font-bold text-[var(--color-dark-100)] mb-4">
                                     Compte-rendu (10 points développés)
                                 </h3>
-                                <div className="space-y-6">
-                                    {summary.compte_rendu_10_points_developpes?.map((point, i) => (
-                                        <div key={i} className="space-y-2 pb-4 border-b border-gray-200 last:border-0 last:pb-0">
-                                            <p className="text-sm font-semibold text-[var(--color-dark-100)]">
-                                                Point {i + 1}
-                                            </p>
-                                            <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
-                                                {point}
-                                            </p>
+                                {editMode ? (
+                                    <div className="space-y-4">
+                                        {(editedSummary?.compte_rendu_10_points_developpes ?? []).map((txt, idx) => (
+                                            <div key={idx} className="space-y-2">
+                                                <p className="text-sm font-semibold text-[var(--color-dark-100)]">
+                                                    Point {idx + 1}
+                                                </p>
+                                                <textarea
+                                                    className="w-full min-h-[140px] rounded-md border border-gray-300 p-3 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[var(--color-dark-100)]"
+                                                    value={txt ?? ""}
+                                                    onChange={(e) => {
+                                                        setEditedSummary((prev) => {
+                                                            if (!prev) return prev;
+                                                            const next = [...(prev.compte_rendu_10_points_developpes ?? [])];
+                                                            next[idx] = e.target.value; // ✅ garde les sauts de ligne
+                                                            return { ...prev, compte_rendu_10_points_developpes: next };
+                                                        });
+                                                    }}
+                                                />
+                                            </div>
+                                        ))}
+
+                                        <div className="flex gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setEditedSummary((prev) => {
+                                                        if (!prev) return prev;
+                                                        return {
+                                                            ...prev,
+                                                            compte_rendu_10_points_developpes: [
+                                                                ...(prev.compte_rendu_10_points_developpes ?? []),
+                                                                "",
+                                                            ],
+                                                        };
+                                                    });
+                                                }}
+                                            >
+                                                + Ajouter un point développé
+                                            </Button>
+
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                onClick={() => {
+                                                    setEditedSummary((prev) => {
+                                                        if (!prev) return prev;
+                                                        const arr = [...(prev.compte_rendu_10_points_developpes ?? [])];
+                                                        arr.pop();
+                                                        return { ...prev, compte_rendu_10_points_developpes: arr };
+                                                    });
+                                                }}
+                                                disabled={!(editedSummary?.compte_rendu_10_points_developpes?.length)}
+                                            >
+                                                - Supprimer le dernier
+                                            </Button>
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-6">
+                                        {summary.compte_rendu_10_points_developpes?.map((point, i) => (
+                                            <div key={i} className="space-y-2 pb-4 border-b border-gray-200 last:border-0 last:pb-0">
+                                                <p className="text-sm font-semibold text-[var(--color-dark-100)]">
+                                                    Point {i + 1}
+                                                </p>
+                                                <p className="text-sm leading-relaxed text-gray-700 whitespace-pre-line">
+                                                    {point}
+                                                </p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+
                             </div>
                         </CardContent>
                     </Card>
@@ -866,34 +1167,27 @@ export default function MeetingDetailPage() {
                             <DialogDescription>Transcription de la réunion</DialogDescription>
 
                             {/* ✅ Bouton conditionnel selon le rôle */}
-                            {isOrganizer ? (
-                                <div className="flex gap-2 mt-4">
-                                    <Button
-                                        onClick={generateSummaryFromTranscript}
-                                        disabled={transcriptDialog.loading || generatingSummary || !transcriptDialog.data?.parsed?.length}
-                                        className="gap-2 bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white"
-                                    >
-                                        {generatingSummary ? (
-                                            <>
-                                                <Loader2 className="h-4 w-4 animate-spin" />
-                                                Génération...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Sparkles className="h-4 w-4" />
-                                                Générer la synthèse
-                                            </>
-                                        )}
-                                    </Button>
-                                </div>
-                            ) : (
-                                <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200">
-                                    <p className="text-sm text-amber-800 flex items-center gap-2">
-                                        <ShieldAlert className="h-4 w-4" />
-                                        Seul l&apos;organisateur ({meeting.organizerEmail}) peut générer une synthèse IA.
-                                    </p>
-                                </div>
-                            )}
+
+                            <div className="flex gap-2 mt-4">
+                                <Button
+                                    onClick={generateSummaryFromTranscript}
+                                    disabled={transcriptDialog.loading || generatingSummary || !transcriptDialog.data?.parsed?.length}
+                                    className="gap-2 bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white"
+                                >
+                                    {generatingSummary ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            Génération...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Sparkles className="h-4 w-4" />
+                                            Générer la synthèse
+                                        </>
+                                    )}
+                                </Button>
+                            </div>
+
                         </DialogHeader>
 
                         <ScrollArea className="h-[60vh] pr-4">
