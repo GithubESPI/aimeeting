@@ -1,13 +1,14 @@
 // app/api/meetings/send-summary-pdf/route.ts
-// ✅ Version améliorée qui enregistre les logs d'envoi en DB
+// ✅ Version qui utilise le token délégué de l'organisateur
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getDelegatedAccessToken } from "@/lib/auth/getDelegatedToken";
 
 export const dynamic = "force-dynamic";
 
 type Body = {
-    meetingId?: string; // ✅ ID de la réunion pour logger
+    meetingId?: string;
     to: string[];
     subject: string;
     message: string;
@@ -33,17 +34,17 @@ export async function POST(req: Request) {
             );
         }
 
-        // Configuration Microsoft Graph Mail.Send
-        const accessToken = process.env.GRAPH_ACCESS_TOKEN; // ou récupérer via getDelegatedToken
+        // ✅ Obtenir le token de l'utilisateur actuellement connecté
+        const accessToken = await getDelegatedAccessToken();
 
         if (!accessToken) {
             return NextResponse.json(
-                { error: "Token d'accès manquant" },
-                { status: 500 }
+                { error: "Token d'accès manquant. Vous devez être connecté pour envoyer des emails." },
+                { status: 401 }
             );
         }
 
-        // Construire le payload pour Microsoft Graph
+        // ✅ Construire le payload pour Microsoft Graph
         const mailPayload = {
             message: {
                 subject: body.subject,
@@ -66,8 +67,12 @@ export async function POST(req: Request) {
             saveToSentItems: true,
         };
 
-        // Envoyer via Microsoft Graph
-        const graphRes = await fetch("https://graph.microsoft.com/v1.0/me/sendMail", {
+        // ✅ Utiliser /me/sendMail car on a un token délégué
+        const graphUrl = "https://graph.microsoft.com/v1.0/me/sendMail";
+
+        console.log(`📧 Envoi d'email vers ${body.to.join(", ")}`);
+
+        const graphRes = await fetch(graphUrl, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -82,6 +87,7 @@ export async function POST(req: Request) {
         if (!success) {
             const errorData = await graphRes.json().catch(() => ({}));
             errorMessage = errorData?.error?.message ?? `HTTP ${graphRes.status}`;
+            console.error("❌ Erreur Graph API:", errorData);
         }
 
         // ✅ Logger en DB
@@ -116,6 +122,8 @@ export async function POST(req: Request) {
                 { status: graphRes.status }
             );
         }
+
+        console.log(`✅ Email envoyé avec succès à ${body.to.length} destinataire(s)`);
 
         return NextResponse.json({
             success: true,
