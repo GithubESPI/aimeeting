@@ -56,7 +56,7 @@ export default function AdminDebugMeetingsPage() {
     const [error, setError] = React.useState<string | null>(null);
     const [searchQuery, setSearchQuery] = React.useState("");
 
-    // Vérifier que l'utilisateur est admin
+    // Vérifier que l&apos;utilisateur est admin
     const isAdmin = session?.user?.email === "a.vespuce@groupe-espi.fr";
 
     React.useEffect(() => {
@@ -157,7 +157,7 @@ export default function AdminDebugMeetingsPage() {
                         </h1>
                     </div>
                     <p className="text-gray-600">
-                        Testez les réunions Microsoft Graph pour n'importe quel utilisateur
+                        Testez les réunions Microsoft Graph pour n&apos;importe quel utilisateur
                     </p>
                 </div>
 
@@ -166,7 +166,7 @@ export default function AdminDebugMeetingsPage() {
                     <CardHeader>
                         <CardTitle className="text-[var(--color-dark-100)] flex items-center gap-2">
                             <User className="h-5 w-5" />
-                            Rechercher les réunions d'un utilisateur
+                            Rechercher les réunions d&apos;un utilisateur
                         </CardTitle>
                     </CardHeader>
                     <CardContent>
