@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node server.js",
+    "dev": "next dev",
     "build": "prisma generate && node node_modules/next/dist/bin/next build",
-    "start": "node server.js",
+    "start": "node node_modules/next/dist/bin/next start -p $PORT",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "postinstall": "prisma generate"
