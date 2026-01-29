@@ -1,5 +1,5 @@
 // app/api/meetings/[id]/route.ts
-// ✅ Version corrigée qui retourne transcriptRaw, graphId, onlineMeetingId, etc.
+// ✅ Version avec logs de debug pour comprendre les problèmes d'accès
 
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -26,6 +26,9 @@ export async function GET(
         const userId = (session.user as any).id;
         const userEmail = session.user.email?.toLowerCase();
         const meetingId = params.id;
+
+        console.log(`\n🔍 [GET /api/meetings/${meetingId}]`);
+        console.log(`   User: ${userEmail} (ID: ${userId})`);
 
         // Récupérer la réunion avec tous les champs nécessaires
         const meeting = await prisma.meeting.findUnique({
@@ -59,13 +62,18 @@ export async function GET(
         });
 
         if (!meeting) {
+            console.log(`   ❌ Meeting not found`);
             return NextResponse.json(
                 { error: "Réunion non trouvée" },
                 { status: 404 }
             );
         }
 
-        // Vérifier les permissions
+        console.log(`   ✅ Meeting found: "${meeting.title}"`);
+        console.log(`   Organizer: ${meeting.organizerEmail}`);
+        console.log(`   Has transcriptRaw: ${!!meeting.transcriptRaw}`);
+
+        // Vérifier les permissions LECTURE (tous les participants)
         const isOwner = meeting.userId === userId;
         const isParticipant = meeting.attendees.some(
             (a) => a.participant.email?.toLowerCase() === userEmail
@@ -75,12 +83,28 @@ export async function GET(
             (email) => email.toLowerCase() === userEmail
         );
 
+        // 🔍 DEBUG: Log les vérifications d'accès
+        console.log(`\n   📋 Access check:`);
+        console.log(`   - isOwner: ${isOwner} (meeting.userId: ${meeting.userId})`);
+        console.log(`   - isParticipant: ${isParticipant}`);
+        console.log(`   - isInEmails: ${isInEmails}`);
+        console.log(`   - participantsEmails (${participantsEmails.length}):`, participantsEmails);
+        console.log(`   - attendees emails (${meeting.attendees.length}):`, meeting.attendees.map(a => a.participant.email));
+
+        // ✅ LECTURE : Autoriser tous les participants (organisateur OU participant)
         if (!isOwner && !isParticipant && !isInEmails) {
+            console.log(`\n   ❌ ACCESS DENIED for ${userEmail}`);
             return NextResponse.json(
                 { error: "Accès non autorisé à cette réunion" },
                 { status: 403 }
             );
         }
+
+        console.log(`   ✅ ACCESS GRANTED for ${userEmail}`);
+
+        // ✅ Déterminer si l'utilisateur est l'organisateur
+        const userIsOrganizer = meeting.organizerEmail?.toLowerCase() === userEmail;
+        console.log(`   📝 Is organizer: ${userIsOrganizer}\n`);
 
         // ✅ Formater la réponse avec TOUS les champs nécessaires
         const formattedMeeting = {
@@ -101,6 +125,9 @@ export async function GET(
             // Synthèse et métadonnées
             summaryJson: meeting.summaryJson,
             participantsEmails: participantsEmails,
+
+            // ✅ NOUVEAU : Indiquer si l'utilisateur est l'organisateur
+            isOrganizer: userIsOrganizer,
 
             // Participants
             attendees: meeting.attendees.map((a) => ({

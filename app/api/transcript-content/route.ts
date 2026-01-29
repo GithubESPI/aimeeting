@@ -1,9 +1,9 @@
 // app/api/transcript-content/route.ts
-// VERSION - Télécharge VTT + (option) persist en DB
+// ✅ DB-FIRST + fallback Graph + persist fiable via meetingDbId
 
 import { NextResponse } from "next/server";
 import { Client } from "@microsoft/microsoft-graph-client";
-import { prisma } from "@/lib/prisma"; // ✅ NEW
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
@@ -70,13 +70,19 @@ function escapeODataString(s: string) {
 async function findMeetingIdByJoinUrl(appClient: any, organizerId: string, joinUrl: string): Promise<string | null> {
     const joinUrlEsc = escapeODataString(joinUrl);
 
-    const exact = await appClient.api(`/users/${organizerId}/onlineMeetings`).filter(`joinWebUrl eq '${joinUrlEsc}'`).get();
+    const exact = await appClient
+        .api(`/users/${organizerId}/onlineMeetings`)
+        .filter(`joinWebUrl eq '${joinUrlEsc}'`)
+        .get();
     if (exact?.value?.length) return exact.value[0].id as string;
 
     const base = joinUrl.split("?")[0];
     const baseEsc = escapeODataString(base);
 
-    const sw = await appClient.api(`/users/${organizerId}/onlineMeetings`).filter(`startswith(joinWebUrl,'${baseEsc}')`).get();
+    const sw = await appClient
+        .api(`/users/${organizerId}/onlineMeetings`)
+        .filter(`startswith(joinWebUrl,'${baseEsc}')`)
+        .get();
     if (sw?.value?.length) return sw.value[0].id as string;
 
     return null;
@@ -84,12 +90,11 @@ async function findMeetingIdByJoinUrl(appClient: any, organizerId: string, joinU
 
 async function getTranscriptContent(appClient: any, appToken: string, organizerEmail: string, meetingId: string, transcriptId: string) {
     const organizer = await appClient.api(`/users/${organizerEmail}`).select("id").get();
-
     const transcriptUrl = `https://graph.microsoft.com/v1.0/users/${organizer.id}/onlineMeetings/${meetingId}/transcripts/${transcriptId}/content`;
     return await downloadTranscriptVttText(appToken, transcriptUrl);
 }
 
-/** ✅ NEW: convert "HH:MM:SS" or "MM:SS" to ms */
+/** ✅ convert "HH:MM:SS" or "MM:SS" to ms */
 function tsToMs(ts: string) {
     const clean = ts.trim();
     const parts = clean.split(":").map((x) => parseInt(x, 10));
@@ -103,7 +108,6 @@ function tsToMs(ts: string) {
     return ((h * 3600 + m * 60 + s) * 1000) | 0;
 }
 
-/** ✅ NEW: parse VTT en gardant start/end */
 type ParsedSegment = { start: string; end: string; text: string; speaker?: string };
 
 function parseVTTWithEnd(vtt: string): ParsedSegment[] {
@@ -154,7 +158,6 @@ function parseVTTWithEnd(vtt: string): ParsedSegment[] {
     return result;
 }
 
-/** ✅ NEW: texte brut from parsed */
 function parsedToPlainText(parsed: ParsedSegment[]) {
     return parsed
         .map((p) => `${p.speaker ? `${p.speaker}: ` : ""}${p.text}`.trim())
@@ -164,20 +167,47 @@ function parsedToPlainText(parsed: ParsedSegment[]) {
 
 export async function GET(req: Request) {
     try {
-        const appToken = await getAppAccessToken();
-        const appClient = graphClient(appToken);
-
         const { searchParams } = new URL(req.url);
+
         const ownerEmail = searchParams.get("ownerEmail");
         const meetingSubject = searchParams.get("meetingSubject") || "";
         const joinUrl = searchParams.get("joinUrl");
-        const meetingDate = searchParams.get("meetingDate") || "";
         const fileId = searchParams.get("fileId"); // transcriptId
         const meetingIdFromFrontend = searchParams.get("meetingId"); // onlineMeetingId
-        const persist = searchParams.get("persist") === "true"; // ✅ NEW
+        const meetingDbId = searchParams.get("meetingDbId"); // ✅ NEW
+        const persist = searchParams.get("persist") === "true";
 
         if (!ownerEmail) return NextResponse.json({ error: "Missing ownerEmail parameter" }, { status: 400 });
         if (!fileId) return NextResponse.json({ error: "Missing fileId (transcriptId) parameter" }, { status: 400 });
+
+        // ✅ 1) DB FIRST : si déjà stocké, on renvoie direct (évite Graph pour les participants)
+        if (meetingDbId) {
+            const m = await prisma.meeting.findUnique({
+                where: { id: meetingDbId },
+                select: { transcriptRaw: true, fullTranscript: true },
+            });
+
+            if (m?.transcriptRaw) {
+                return NextResponse.json(m.transcriptRaw);
+            }
+
+            // fallback minimal si seulement fullTranscript
+            if (m?.fullTranscript) {
+                return NextResponse.json({
+                    type: "vtt",
+                    parsed: m.fullTranscript.split("\n").map((line) => ({
+                        timestamp: "",
+                        text: line,
+                    })),
+                    success: true,
+                    stats: { lines: m.fullTranscript.split("\n").length, speakers: 0, totalCharacters: m.fullTranscript.length },
+                });
+            }
+        }
+
+        // ✅ 2) Sinon fallback Graph
+        const appToken = await getAppAccessToken();
+        const appClient = graphClient(appToken);
 
         let meetingId = meetingIdFromFrontend;
         let transcriptContent: string | null = null;
@@ -220,7 +250,7 @@ export async function GET(req: Request) {
                     type: "not_accessible",
                     message: "Accès refusé à la transcription via l'API Graph (403).",
                     explanation:
-                        "Vérifiez les permissions Graph (OnlineMeetingTranscript.Read.All / OnlineMeetings.Read.All) et les policies tenant Teams/Entra.",
+                        "Dans beaucoup de tenants, les participants n'ont pas accès au content via Graph. Solution: DB-first + persist par l’organisateur.",
                     teamsUrl: joinUrl,
                 });
             }
@@ -232,9 +262,9 @@ export async function GET(req: Request) {
         const plainText = parsedToPlainText(parsed);
 
         const payload = {
-            type: "vtt",
+            type: "vtt" as const,
             parsed: parsed.map((p) => ({
-                timestamp: p.start, // compat front actuel
+                timestamp: p.start,
                 text: p.text,
                 speaker: p.speaker,
             })),
@@ -246,44 +276,56 @@ export async function GET(req: Request) {
             },
         };
 
-        // ✅ Persist DB si demandé
+        // ✅ 3) Persist DB si demandé : update par meetingDbId d'abord (fiable)
         if (persist) {
             try {
-                // 1) update Meeting
-                await prisma.meeting.update({
-                    where: { onlineMeetingId: meetingId },
-                    data: {
-                        transcriptSource: "onlineMeetings",
-                        organizerEmail: ownerEmail,
-                        // on stocke à la fois le brut et un texte utilisable
-                        transcriptRaw: payload as any,
-                        fullTranscript: plainText || transcriptContent || undefined,
-                        // optionnel: sécuriser le titre si jamais vide
-                        title: meetingSubject || undefined,
-                    },
-                });
+                let meetingRowId: string | null = null;
 
-                // 2) remplacer segments (simple et safe)
-                await prisma.transcriptSegment.deleteMany({
-                    where: { meetingId: (await prisma.meeting.findUnique({ where: { onlineMeetingId: meetingId }, select: { id: true } }))?.id ?? "" },
-                });
-
-                const meetingRow = await prisma.meeting.findUnique({
-                    where: { onlineMeetingId: meetingId },
-                    select: { id: true },
-                });
-
-                if (meetingRow?.id && parsed.length) {
-                    await prisma.transcriptSegment.createMany({
-                        data: parsed.map((p) => ({
-                            meetingId: meetingRow.id,
-                            diarizedSpeaker: p.speaker ?? "Unknown",
-                            participantId: null,
-                            startMs: tsToMs(p.start),
-                            endMs: tsToMs(p.end),
-                            text: p.text,
-                        })),
+                if (meetingDbId) {
+                    const updated = await prisma.meeting.update({
+                        where: { id: meetingDbId },
+                        data: {
+                            transcriptSource: "onlineMeetings",
+                            organizerEmail: ownerEmail,
+                            transcriptRaw: payload as any,
+                            fullTranscript: plainText || transcriptContent || undefined,
+                            title: meetingSubject || undefined,
+                            onlineMeetingId: meetingId, // ✅ on s'assure aussi de le stocker
+                        },
+                        select: { id: true },
                     });
+                    meetingRowId = updated.id;
+                } else {
+                    // fallback ancien comportement
+                    const updated = await prisma.meeting.update({
+                        where: { onlineMeetingId: meetingId },
+                        data: {
+                            transcriptSource: "onlineMeetings",
+                            organizerEmail: ownerEmail,
+                            transcriptRaw: payload as any,
+                            fullTranscript: plainText || transcriptContent || undefined,
+                            title: meetingSubject || undefined,
+                        },
+                        select: { id: true },
+                    });
+                    meetingRowId = updated.id;
+                }
+
+                if (meetingRowId) {
+                    await prisma.transcriptSegment.deleteMany({ where: { meetingId: meetingRowId } });
+
+                    if (parsed.length) {
+                        await prisma.transcriptSegment.createMany({
+                            data: parsed.map((p) => ({
+                                meetingId: meetingRowId!,
+                                diarizedSpeaker: p.speaker ?? "Unknown",
+                                participantId: null,
+                                startMs: tsToMs(p.start),
+                                endMs: tsToMs(p.end),
+                                text: p.text,
+                            })),
+                        });
+                    }
                 }
             } catch (dbErr) {
                 console.error("[Transcript] DB persist failed:", dbErr);
