@@ -10,31 +10,33 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
-
-    # 🔹 ICI : on expose les variables d'env nécessaires au build
+      contents: read
+    
+    # 🔹 Variables d'environnement pour le BUILD
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      # Tu pourras ajouter ici plus tard :
-      # NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
-      # NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
-      # OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-      # RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-
+      NEXTAUTH_URL: ${{ secrets.NEXTAUTH_URL }}
+      NEXTAUTH_SECRET: ${{ secrets.NEXTAUTH_SECRET }}
+      AZURE_AD_CLIENT_ID: ${{ secrets.AZURE_AD_CLIENT_ID }}
+      AZURE_AD_CLIENT_SECRET: ${{ secrets.AZURE_AD_CLIENT_SECRET }}
+      AZURE_AD_TENANT_ID: ${{ secrets.AZURE_AD_TENANT_ID }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up Node.js version
         uses: actions/setup-node@v3
         with:
           node-version: '20.x'
-
+          
       - name: npm install, build, and test
         run: |
           npm install
           npm run build --if-present
           npm run test --if-present
-
+          
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -45,7 +47,7 @@ jobs:
             !**/.git
             !**/.github
             !**/.env*
-
+            !**/node_modules
 
   deploy:
     runs-on: ubuntu-latest
@@ -53,7 +55,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
+      
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
@@ -66,7 +68,7 @@ jobs:
           client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_F6985A5B89674EFE98B22CDB08F6C834 }}
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_F9C120B89968490C99A48F88B3060BC3 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_7AF67981E94547C7B7360C8D9BA74966 }}
-
+          
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
@@ -74,4 +76,3 @@ jobs:
           app-name: 'aimeeting'
           slot-name: 'Production'
           package: .
-
