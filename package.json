@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "cross-env NODE_OPTIONS=--max-http-header-size=32768 next dev",
-    "build": "prisma generate && cross-env NODE_OPTIONS=--max-http-header-size=32768 node node_modules/next/dist/bin/next build",
-    "start": "cross-env NODE_OPTIONS=--max-http-header-size=32768 node node_modules/next/dist/bin/next start -p $PORT",
+    "dev": "node server.js",
+    "build": "prisma generate && node node_modules/next/dist/bin/next build",
+    "start": "node server.js",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "postinstall": "prisma generate"
