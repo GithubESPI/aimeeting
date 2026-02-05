@@ -45,8 +45,10 @@ type ApiResponse = {
 };
 
 export default function AdminDebugMeetingsPage() {
-    const { data: session } = useSession();
+    const { data: session, status } = useSession();
     const router = useRouter();
+
+    // States
     const [email, setEmail] = React.useState("l.vaughn@groupe-espi.fr");
     const [startDate, setStartDate] = React.useState("2026-01-01");
     const [endDate, setEndDate] = React.useState("2026-12-31");
@@ -56,14 +58,14 @@ export default function AdminDebugMeetingsPage() {
     const [error, setError] = React.useState<string | null>(null);
     const [searchQuery, setSearchQuery] = React.useState("");
 
-    // Vérifier que l&apos;utilisateur est admin
+    // Vérification Admin (Sécurité Client-side)
     const isAdmin = session?.user?.email === "a.vespuce@groupe-espi.fr";
 
     React.useEffect(() => {
-        if (!isAdmin && session) {
-            window.location.href = "/dashboard";
+        if (status === "unauthenticated" || (status === "authenticated" && !isAdmin)) {
+            router.push("/dashboard");
         }
-    }, [isAdmin, session]);
+    }, [isAdmin, status, router]);
 
     async function fetchMeetings() {
         if (!email) return;
@@ -84,15 +86,16 @@ export default function AdminDebugMeetingsPage() {
                 cache: "no-store",
             });
 
+            const json = await res.json();
+
             if (!res.ok) {
-                const json = await res.json().catch(() => ({}));
-                throw new Error(json?.error ?? `Erreur HTTP ${res.status}`);
+                throw new Error(json?.error || `Erreur ${res.status}`);
             }
 
-            const json = await res.json();
             setData(json);
         } catch (e: any) {
-            setError(e?.message ?? "Erreur lors du chargement");
+            console.error("Fetch error:", e);
+            setError(e?.message || "Erreur lors du chargement des réunions");
         } finally {
             setLoading(false);
         }
@@ -100,50 +103,30 @@ export default function AdminDebugMeetingsPage() {
 
     const filteredMeetings = React.useMemo(() => {
         if (!data?.meetings) return [];
-        if (!searchQuery) return data.meetings;
+        let filtered = data.meetings;
 
-        const q = searchQuery.toLowerCase();
-        return data.meetings.filter((m) =>
-            m.subject.toLowerCase().includes(q) ||
-            m.organizer.emailAddress.address.toLowerCase().includes(q)
-        );
+        if (searchQuery) {
+            const q = searchQuery.toLowerCase();
+            filtered = filtered.filter((m) =>
+                m.subject?.toLowerCase().includes(q) ||
+                m.organizer?.emailAddress?.address?.toLowerCase().includes(q) ||
+                m.organizer?.emailAddress?.name?.toLowerCase().includes(q)
+            );
+        }
+
+        return filtered;
     }, [data, searchQuery]);
 
-    if (!session) {
+    // État de chargement de la session
+    if (status === "loading") {
         return (
             <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Card className="w-96">
-                    <CardContent className="pt-6">
-                        <div className="text-center">
-                            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-[var(--color-dark-100)]" />
-                            <p className="text-sm text-gray-600">Vérification des accès...</p>
-                        </div>
-                    </CardContent>
-                </Card>
+                <Loader2 className="h-8 w-8 animate-spin text-[var(--color-dark-100)]" />
             </div>
         );
     }
 
-    if (!isAdmin) {
-        return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <Card className="w-96 border-[#F76A6A]">
-                    <CardContent className="pt-6">
-                        <div className="text-center">
-                            <AlertCircle className="h-12 w-12 mx-auto mb-4 text-[#F76A6A]" />
-                            <h3 className="text-lg font-semibold mb-2">Accès refusé</h3>
-                            <p className="text-sm text-gray-600 mb-4">
-                                Cette page est réservée aux administrateurs.
-                            </p>
-                            <Button onClick={() => window.location.href = "/dashboard"}>
-                                Retour au dashboard
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        );
-    }
+    if (!isAdmin) return null; // Le useEffect gère la redirection
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -157,67 +140,49 @@ export default function AdminDebugMeetingsPage() {
                         </h1>
                     </div>
                     <p className="text-gray-600">
-                        Testez les réunions Microsoft Graph pour n&apos;importe quel utilisateur
+                        Visualisez et dépannez les réunions Microsoft Graph pour n&apos;importe quel utilisateur.
                     </p>
                 </div>
 
-                {/* Search Form */}
-                <Card className="mb-6 shadow-md">
+                {/* Formulaire de recherche */}
+                <Card className="mb-6 shadow-md border-t-4 border-t-[var(--color-dark-100)]">
                     <CardHeader>
-                        <CardTitle className="text-[var(--color-dark-100)] flex items-center gap-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
                             <User className="h-5 w-5" />
-                            Rechercher les réunions d&apos;un utilisateur
+                            Paramètres de recherche
                         </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <div className="space-y-3">
-                            <div className="flex gap-3">
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Email de l&apos;utilisateur</label>
                                 <Input
                                     type="email"
                                     placeholder="email@groupe-espi.fr"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
-                                    className="flex-1"
                                     onKeyDown={(e) => e.key === "Enter" && fetchMeetings()}
                                 />
-                                <Button
-                                    onClick={fetchMeetings}
-                                    disabled={loading || !email}
-                                    className="bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white gap-2"
-                                >
-                                    {loading ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            Chargement...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Search className="h-4 w-4" />
-                                            Rechercher
-                                        </>
-                                    )}
-                                </Button>
                             </div>
-
-                            {/* Date Range */}
-                            <div className="flex gap-3 items-center">
-                                <span className="text-sm text-gray-600 whitespace-nowrap">Période :</span>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Date de début</label>
                                 <Input
                                     type="date"
                                     value={startDate}
                                     onChange={(e) => setStartDate(e.target.value)}
-                                    className="flex-1"
                                 />
-                                <span className="text-gray-600">→</span>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Date de fin</label>
                                 <Input
                                     type="date"
                                     value={endDate}
                                     onChange={(e) => setEndDate(e.target.value)}
-                                    className="flex-1"
                                 />
                             </div>
+                        </div>
 
-                            {/* Filter Transcriptions */}
+                        <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
                             <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-lg">
                                 <input
                                     type="checkbox"
@@ -227,229 +192,160 @@ export default function AdminDebugMeetingsPage() {
                                     className="h-4 w-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500"
                                 />
                                 <label htmlFor="onlyTranscripts" className="text-sm font-medium text-gray-700 cursor-pointer">
-                                    📝 Afficher uniquement les réunions avec transcription
+                                    📝 Uniquement avec transcription
                                 </label>
                             </div>
 
-                            {/* Quick links */}
-                            <div className="mt-4 flex gap-2 flex-wrap">
-                                <span className="text-sm text-gray-600">Accès rapide :</span>
+                            <Button
+                                onClick={fetchMeetings}
+                                disabled={loading || !email}
+                                className="bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white min-w-[150px]"
+                            >
+                                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
+                                Rechercher
+                            </Button>
+                        </div>
+
+                        {/* Liens rapides */}
+                        <div className="flex gap-2 flex-wrap pt-2 border-t mt-4">
+                            <span className="text-xs font-semibold uppercase text-gray-400 w-full mb-1">Accès rapide</span>
+                            {["l.vaughn@groupe-espi.fr", "didier.latour@groupe-espi.fr", "a.vespuce@groupe-espi.fr"].map((acc) => (
                                 <Button
+                                    key={acc}
                                     variant="outline"
                                     size="sm"
+                                    className="text-xs"
                                     onClick={() => {
-                                        setEmail("l.vaughn@groupe-espi.fr");
-                                        setTimeout(() => fetchMeetings(), 100);
+                                        setEmail(acc);
+                                        // Petit délai pour laisser le state se mettre à jour avant de fetcher
+                                        setTimeout(() => fetchMeetings(), 50);
                                     }}
                                 >
-                                    Leïla VAUGHN
+                                    {acc.split('@')[0].replace('.', ' ')}
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        setEmail("didier.latour@groupe-espi.fr");
-                                        setTimeout(() => fetchMeetings(), 100);
-                                    }}
-                                >
-                                    Didier LATOUR
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        setEmail("a.vespuce@groupe-espi.fr");
-                                        setTimeout(() => fetchMeetings(), 100);
-                                    }}
-                                >
-                                    Andy VESPUCE
-                                </Button>
-                            </div>
+                            ))}
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Error Message */}
                 {error && (
-                    <Card className="mb-6 border-[#F76A6A] bg-[#F76A6A]/10">
-                        <CardContent className="pt-6">
-                            <div className="flex items-center gap-2">
-                                <AlertCircle className="h-5 w-5 text-[#F76A6A]" />
-                                <p className="text-sm text-[#F76A6A] font-medium">{error}</p>
-                            </div>
+                    <Card className="mb-6 border-red-200 bg-red-50">
+                        <CardContent className="pt-6 flex items-center gap-3 text-red-700">
+                            <AlertCircle className="h-5 w-5" />
+                            <p className="font-medium">{error}</p>
                         </CardContent>
                     </Card>
                 )}
 
-                {/* Results */}
                 {data && (
                     <>
-                        {/* Stats */}
+                        {/* Stats Cards */}
                         <div className="grid gap-4 md:grid-cols-4 mb-6">
-                            <Card className="shadow-md border-[var(--color-dark-100)]/20 bg-gradient-to-r from-[var(--color-dark-100)] to-[#007aa8]">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-white/80">Utilisateur</p>
-                                            <p className="text-2xl font-bold text-white">{data.email}</p>
+                            {[
+                                { label: "Utilisateur", val: data.email, icon: User, color: "from-blue-600 to-blue-700" },
+                                { label: "Total Réunions", val: data.count, icon: Calendar, color: "from-slate-700 to-slate-800" },
+                                { label: "Teams Meetings", val: data.meetings.filter(m => m.isOnlineMeeting).length, icon: CheckCircle2, color: "from-green-600 to-green-700" },
+                                { label: "Transcriptions", val: data.meetings.filter(m => m.hasTranscript).length, icon: RefreshCw, color: "from-amber-500 to-amber-600" },
+                            ].map((stat, i) => (
+                                <Card key={i} className={`shadow-md text-white bg-gradient-to-br ${stat.color} border-none`}>
+                                    <CardContent className="pt-6">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-xs font-medium opacity-80 uppercase tracking-wider">{stat.label}</p>
+                                                <p className="text-xl font-bold truncate max-w-[180px]">{stat.val}</p>
+                                            </div>
+                                            <stat.icon className="h-8 w-8 opacity-30" />
                                         </div>
-                                        <User className="h-8 w-8 text-white/50" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="shadow-md border-[var(--color-dark-100)]/20 bg-gradient-to-r from-[var(--color-dark-100)] to-[#007aa8]">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-white/80">Réunions trouvées</p>
-                                            <p className="text-2xl font-bold text-white">{data.count}</p>
-                                        </div>
-                                        <Calendar className="h-8 w-8 text-white/50" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="shadow-md border-[var(--color-dark-100)]/20 bg-gradient-to-r from-[var(--color-dark-100)] to-[#007aa8]">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-white/80">Teams Meetings</p>
-                                            <p className="text-2xl font-bold text-white">
-                                                {data.meetings.filter(m => m.isOnlineMeeting).length}
-                                            </p>
-                                        </div>
-                                        <CheckCircle2 className="h-8 w-8 text-white/50" />
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            <Card className="shadow-md border-amber-500/20 bg-gradient-to-r from-amber-500 to-amber-600">
-                                <CardContent className="pt-6">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-white/80">Avec transcription</p>
-                                            <p className="text-2xl font-bold text-white">
-                                                {data.meetings.filter(m => m.hasTranscript).length}
-                                            </p>
-                                        </div>
-                                        <RefreshCw className="h-8 w-8 text-white/50" />
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                    </CardContent>
+                                </Card>
+                            ))}
                         </div>
 
-                        {/* Filter */}
-                        <Card className="mb-6 shadow-sm">
-                            <CardContent className="pt-6">
-                                <div className="relative">
-                                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                                    <Input
-                                        placeholder="Filtrer par titre ou organisateur..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="pl-9"
-                                    />
-                                </div>
-                            </CardContent>
-                        </Card>
+                        {/* Search in results */}
+                        <div className="relative mb-6">
+                            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                            <Input
+                                placeholder="Rechercher par titre ou organisateur dans cette liste..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 shadow-sm"
+                            />
+                        </div>
 
-                        {/* Meetings List */}
-                        {filteredMeetings.length === 0 ? (
-                            <Card>
-                                <CardContent className="py-12 text-center">
-                                    <Calendar className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                                    <p className="text-gray-600">
-                                        {searchQuery ? "Aucune réunion ne correspond à votre recherche" : "Aucune réunion trouvée"}
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        ) : (
-                            <div className="space-y-4">
-                                {filteredMeetings.map((meeting, idx) => {
-                                    const startDate = new Date(meeting.start.dateTime);
-                                    const endDate = new Date(meeting.end.dateTime);
-
+                        {/* List */}
+                        <div className="space-y-4">
+                            {filteredMeetings.length === 0 ? (
+                                <Card className="bg-gray-50 border-dashed">
+                                    <CardContent className="py-12 text-center text-gray-400">
+                                        Aucune réunion trouvée.
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                filteredMeetings.map((meeting) => {
+                                    const start = new Date(meeting.start.dateTime);
+                                    const end = new Date(meeting.end.dateTime);
                                     return (
                                         <Card
                                             key={meeting.id}
+                                            className="hover:shadow-md transition-all cursor-pointer border-l-4 border-l-[var(--color-dark-100)]"
                                             onClick={() => router.push(`/admin/debug-meetings/${meeting.id}?userEmail=${encodeURIComponent(email)}`)}
-                                            className="shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                                         >
-                                            <CardContent className="pt-6">
-                                                <div className="flex items-start gap-4">
-                                                    {/* Date Box */}
-                                                    <div className="flex flex-col items-center justify-center rounded-lg bg-[var(--color-dark-100)] text-white px-4 py-3 min-w-[70px]">
-                                                        <div className="text-3xl font-bold leading-none">
-                                                            {startDate.getDate()}
+                                            <CardContent className="p-5">
+                                                <div className="flex flex-col md:flex-row gap-5 items-start">
+                                                    {/* Date Badge */}
+                                                    <div className="bg-gray-100 rounded-lg p-3 min-w-[80px] text-center shadow-inner">
+                                                        <span className="block text-2xl font-black text-gray-800">{start.getDate()}</span>
+                                                        <span className="block text-xs font-bold uppercase text-gray-500">
+                                                            {start.toLocaleDateString("fr-FR", { month: "short" })}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                                                            <h3 className="text-lg font-bold text-gray-900 truncate">
+                                                                {meeting.subject || "(Pas de sujet)"}
+                                                            </h3>
+                                                            {meeting.hasTranscript && <Badge className="bg-amber-500 text-white border-none">📝 Transcript</Badge>}
+                                                            {meeting.isOnlineMeeting && <Badge className="bg-green-600 text-white border-none">Teams</Badge>}
                                                         </div>
-                                                        <div className="text-xs uppercase font-medium mt-1 opacity-90">
-                                                            {startDate.toLocaleDateString("fr-FR", { month: "short" })}
+
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-1 text-sm text-gray-600">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="opacity-70">⏰</span>
+                                                                {start.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} - {end.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="opacity-70">👤</span>
+                                                                <span className="truncate">{meeting.organizer?.emailAddress?.name || meeting.organizer?.emailAddress?.address}</span>
+                                                            </div>
+                                                            {meeting.attendees && (
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="opacity-70">👥</span>
+                                                                    {meeting.attendees.length} participant(s)
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
 
-                                                    {/* Content */}
-                                                    <div className="flex-1 space-y-2">
-                                                        <div className="flex items-start justify-between gap-4">
-                                                            <h3 className="text-lg font-semibold text-[var(--color-dark-100)]">
-                                                                {meeting.subject}
-                                                            </h3>
-                                                            <div className="flex gap-2">
-                                                                {meeting.hasTranscript && (
-                                                                    <Badge className="bg-amber-500 text-white">
-                                                                        📝 Transcription
-                                                                    </Badge>
-                                                                )}
-                                                                {meeting.isOnlineMeeting && (
-                                                                    <Badge className="bg-[#4CAF50] text-white">
-                                                                        Teams Meeting
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap">
-                                                            <span>
-                                                                ⏰ {startDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })} - {endDate.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                                            </span>
-                                                            <span>•</span>
-                                                            <span>
-                                                                👤 {meeting.organizer.emailAddress.name || meeting.organizer.emailAddress.address}
-                                                            </span>
-                                                        </div>
-
-                                                        {meeting.attendees && meeting.attendees.length > 0 && (
-                                                            <div className="text-sm text-gray-600">
-                                                                👥 {meeting.attendees.length} participant(s)
-                                                            </div>
-                                                        )}
-
-                                                        {meeting.onlineMeeting?.joinUrl && (
-                                                            <a
-                                                                href={meeting.onlineMeeting.joinUrl}
-                                                                target="_blank"
-                                                                rel="noopener noreferrer"
-                                                                className="text-sm text-[var(--color-dark-100)] hover:underline"
-                                                            >
-                                                                🔗 Rejoindre la réunion
-                                                            </a>
-                                                        )}
+                                                    <div className="flex items-center self-center">
+                                                        <Button variant="ghost" size="sm" className="text-[var(--color-dark-100)]">
+                                                            Détails →
+                                                        </Button>
                                                     </div>
                                                 </div>
                                             </CardContent>
                                         </Card>
                                     );
-                                })}
-                            </div>
-                        )}
+                                })
+                            )}
+                        </div>
                     </>
                 )}
 
-                {/* Loading State */}
                 {loading && (
                     <div className="space-y-4">
                         {[1, 2, 3].map((i) => (
-                            <Skeleton key={i} className="h-32 w-full" />
+                            <Skeleton key={i} className="h-28 w-full rounded-xl" />
                         ))}
                     </div>
                 )}

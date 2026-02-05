@@ -74,6 +74,7 @@ type Meeting = {
     transcriptRaw: any;
     fullTranscript: string | null;
     joinUrl: string | null;
+    isOrganizer: boolean; // ✅ AJOUTER CETTE LIGNE
     emailLogs: Array<{
         id: string;
         status: string;
@@ -1167,25 +1168,35 @@ export default function MeetingDetailPage() {
                             <DialogDescription>Transcription de la réunion</DialogDescription>
 
                             {/* ✅ Bouton conditionnel selon le rôle */}
-
                             <div className="flex gap-2 mt-4">
-                                <Button
-                                    onClick={generateSummaryFromTranscript}
-                                    disabled={transcriptDialog.loading || generatingSummary || !transcriptDialog.data?.parsed?.length}
-                                    className="gap-2 bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white"
-                                >
-                                    {generatingSummary ? (
-                                        <>
-                                            <Loader2 className="h-4 w-4 animate-spin" />
-                                            Génération...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="h-4 w-4" />
-                                            Générer la synthèse
-                                        </>
-                                    )}
-                                </Button>
+                                {meeting.isOrganizer ? (
+                                    <Button
+                                        onClick={generateSummaryFromTranscript}
+                                        disabled={transcriptDialog.loading || generatingSummary || !transcriptDialog.data?.parsed?.length}
+                                        className="gap-2 bg-[var(--color-dark-100)] hover:bg-[#004a6b] text-white"
+                                    >
+                                        {generatingSummary ? (
+                                            <>
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                Génération...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Sparkles className="h-4 w-4" />
+                                                Générer la synthèse
+                                            </>
+                                        )}
+                                    </Button>
+                                ) : (
+                                    <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 w-full">
+                                        <div className="flex items-center gap-2 text-amber-800">
+                                            <AlertCircle className="h-5 w-5" />
+                                            <p className="text-sm font-medium">
+                                                Seul l'organisateur peut générer une synthèse
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                         </DialogHeader>

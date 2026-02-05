@@ -1,6 +1,4 @@
 // app/api/admin/debug-meetings/route.ts
-// ✅ Version finale sans erreurs TypeScript
-
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/authOptions";
@@ -11,28 +9,17 @@ export const dynamic = "force-dynamic";
 let cachedToken: { token: string; expiresAt: number } | null = null;
 
 async function getAccessToken(): Promise<string | null> {
-    // 1. Essayer d'utiliser GRAPH_ACCESS_TOKEN depuis .env
-    if (process.env.GRAPH_ACCESS_TOKEN) {
-        return process.env.GRAPH_ACCESS_TOKEN;
-    }
+    if (process.env.GRAPH_ACCESS_TOKEN) return process.env.GRAPH_ACCESS_TOKEN;
 
-    // 2. Vérifier le cache
     if (cachedToken && cachedToken.expiresAt > Date.now()) {
-        console.log("✅ Utilisation du token en cache");
         return cachedToken.token;
     }
 
-    // 3. Obtenir un nouveau token via OAuth
     const tenantId = process.env.AZURE_AD_TENANT_ID;
     const clientId = process.env.AZURE_AD_CLIENT_ID;
     const clientSecret = process.env.AZURE_AD_CLIENT_SECRET;
 
-    if (!tenantId || !clientId || !clientSecret) {
-        console.error("❌ Configuration Azure AD incomplète");
-        return null;
-    }
-
-    console.log("🔄 Obtention d'un nouveau token Graph API...");
+    if (!tenantId || !clientId || !clientSecret) return null;
 
     const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
     const params = new URLSearchParams({
@@ -49,300 +36,181 @@ async function getAccessToken(): Promise<string | null> {
             body: params.toString(),
         });
 
-        if (!tokenRes.ok) {
-            console.error("❌ Erreur obtention token:", await tokenRes.text());
-            return null;
-        }
+        if (!tokenRes.ok) return null;
 
         const tokenData = await tokenRes.json();
         const accessToken = tokenData.access_token;
         const expiresIn = tokenData.expires_in || 3600;
 
-        // Mettre en cache
         cachedToken = {
             token: accessToken,
             expiresAt: Date.now() + (expiresIn - 300) * 1000,
         };
 
-        console.log(`✅ Token obtenu (expire dans ${expiresIn}s)`);
         return accessToken;
-    } catch (e: any) {
-        console.error("❌ Erreur lors de l'obtention du token:", e);
+    } catch (e) {
         return null;
     }
 }
 
 export async function GET(req: Request) {
     try {
-        // Vérifier que l'utilisateur est admin
         const session = await getServerSession(authOptions);
-
         if (!session?.user?.email) {
             return NextResponse.json({ error: "Non authentifié" }, { status: 401 });
         }
 
+        // Vérification Admin
         if (session.user.email.toLowerCase() !== "a.vespuce@groupe-espi.fr") {
-            return NextResponse.json({ error: "Accès refusé. Réservé aux administrateurs." }, { status: 403 });
+            return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
         }
 
-        // Récupérer les paramètres
         const { searchParams } = new URL(req.url);
         const email = searchParams.get("email");
-        const startDate = searchParams.get("startDate") || "2026-01-01";
-        const endDate = searchParams.get("endDate") || "2026-12-31";
+
+        // --- CHANGEMENT 1: DATES DYNAMIQUES (30 derniers jours par défaut) ---
+        const now = new Date();
+        const defaultStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const defaultEnd = now.toISOString().split('T')[0];
+
+        const startDate = searchParams.get("startDate") || defaultStart;
+        const endDate = searchParams.get("endDate") || defaultEnd;
         const onlyWithTranscripts = searchParams.get("onlyWithTranscripts") === "true";
 
-        if (!email) {
-            return NextResponse.json({ error: "Email requis" }, { status: 400 });
-        }
+        if (!email) return NextResponse.json({ error: "Email requis" }, { status: 400 });
 
-        console.log(`🔍 [Admin] Recherche des réunions pour: ${email}`);
-        console.log(`📅 Période: ${startDate} → ${endDate}`);
-        console.log(`📝 Filtre transcriptions: ${onlyWithTranscripts ? "OUI" : "NON"}`);
-
-        // Obtenir le token (automatiquement ou depuis .env)
         const accessToken = await getAccessToken();
+        if (!accessToken) return NextResponse.json({ error: "Erreur Token" }, { status: 500 });
 
-        if (!accessToken) {
-            return NextResponse.json(
-                {
-                    error: "Impossible d'obtenir un token Microsoft Graph",
-                    solution: "Vérifiez les variables d'environnement dans .env",
-                    required: ["AZURE_AD_TENANT_ID", "AZURE_AD_CLIENT_ID", "AZURE_AD_CLIENT_SECRET"],
-                },
-                { status: 500 }
-            );
-        }
-
-        // Appeler Microsoft Graph API avec calendarView pour une plage de dates
+        // --- CHANGEMENT 2: FETCH SANS CACHE POUR GRAPH API ---
         const startDateTime = `${startDate}T00:00:00Z`;
         const endDateTime = `${endDate}T23:59:59Z`;
-
         const graphUrl = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}/calendarView?startDateTime=${startDateTime}&endDateTime=${endDateTime}&$top=999&$orderby=start/dateTime desc`;
-
-        console.log(`📞 Appel Graph API: ${graphUrl}`);
 
         const graphRes = await fetch(graphUrl, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 "Content-Type": "application/json",
+                "Prefer": 'outlook.timezone="Europe/Paris"'
             },
+            cache: "no-store", // On force Microsoft à nous donner les données réelles
         });
 
-        if (!graphRes.ok) {
-            const errorData = await graphRes.json().catch(() => ({}));
-            console.error("❌ Erreur Graph API:", errorData);
-
-            return NextResponse.json(
-                {
-                    error: errorData?.error?.message ?? `Erreur Graph API: ${graphRes.status}`,
-                    details: errorData,
-                },
-                { status: graphRes.status }
-            );
-        }
+        if (!graphRes.ok) throw new Error("Erreur lors de la récupération du calendrier");
 
         const graphData = await graphRes.json();
         const meetings = graphData.value || [];
 
-        console.log(`✅ ${meetings.length} réunions trouvées pour ${email}`);
-
-        // Récupérer l'ID de l'utilisateur
-        const userUrl = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(email)}`;
-        const userRes = await fetch(userUrl, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-            },
-        });
-
-        if (!userRes.ok) {
-            throw new Error("Impossible de récupérer l'ID utilisateur");
-        }
-
-        const userData = await userRes.json();
-        const userId = userData.id;
-
-        console.log(`👤 User ID: ${userId}`);
-
-        // Grouper par organisateur pour optimiser les appels API
+        // Groupement par organisateur
         const meetingsByOrganizer = new Map<string, any[]>();
         for (const m of meetings) {
             const orgEmail = m.organizer?.emailAddress?.address;
             if (!orgEmail) continue;
-
             const list = meetingsByOrganizer.get(orgEmail) || [];
             list.push(m);
             meetingsByOrganizer.set(orgEmail, list);
         }
 
-        console.log(`📊 ${meetingsByOrganizer.size} organisateurs uniques`);
+        const transcriptsByJoinUrl = new Map<string, any>();
 
-        // Récupérer les transcriptions par organisateur
-        const transcriptsByJoinUrl = new Map<string, any[]>();
-
+        // Boucle sur les organisateurs
         for (const [orgEmail, orgMeetings] of meetingsByOrganizer.entries()) {
-            console.log(`\n🔍 Organisateur: ${orgEmail} (${orgMeetings.length} réunions)`);
-
             try {
-                // Récupérer l'ID de l'organisateur
-                const orgUserUrl = `https://graph.microsoft.com/v1.0/users/${encodeURIComponent(orgEmail)}`;
-                const orgUserRes = await fetch(orgUserUrl, {
-                    method: "GET",
-                    headers: {
-                        Authorization: `Bearer ${accessToken}`,
-                        "Content-Type": "application/json",
-                    },
+                const orgUserRes = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(orgEmail)}`, {
+                    headers: { Authorization: `Bearer ${accessToken}` },
+                    cache: "no-store"
                 });
-
                 if (!orgUserRes.ok) continue;
-
                 const orgUserData = await orgUserRes.json();
                 const organizerId = orgUserData.id;
 
-                // Pour chaque réunion de cet organisateur
                 for (const meeting of orgMeetings) {
                     const joinUrl = meeting.onlineMeeting?.joinUrl || meeting.onlineMeetingUrl;
                     if (!joinUrl) continue;
 
-                    try {
-                        // Trouver l'onlineMeetingId via le joinUrl
-                        const joinUrlEsc = joinUrl.replace(/'/g, "''");
+                    // --- CHANGEMENT 3: RECHERCHE ROBUSTE DE L'ID DE REUNION ---
+                    const joinUrlEsc = joinUrl.replace(/'/g, "''");
+                    let onlineMeetingId = null;
 
-                        // Essai 1: Exact match
-                        const exactUrl = `https://graph.microsoft.com/v1.0/users/${organizerId}/onlineMeetings?$filter=joinWebUrl eq '${joinUrlEsc}'`;
-                        const exactRes = await fetch(exactUrl, {
-                            method: "GET",
-                            headers: {
-                                Authorization: `Bearer ${accessToken}`,
-                                "Content-Type": "application/json",
-                            },
+                    // Test exact
+                    const exactRes = await fetch(`https://graph.microsoft.com/v1.0/users/${organizerId}/onlineMeetings?$filter=joinWebUrl eq '${joinUrlEsc}'`, {
+                        headers: { Authorization: `Bearer ${accessToken}` },
+                        cache: "no-store"
+                    });
+
+                    if (exactRes.ok) {
+                        const data = await exactRes.json();
+                        if (data.value?.length > 0) onlineMeetingId = data.value[0].id;
+                    }
+
+                    // Fallback Startswith
+                    if (!onlineMeetingId) {
+                        const baseUrl = joinUrl.split("?")[0].replace(/'/g, "''");
+                        const swRes = await fetch(`https://graph.microsoft.com/v1.0/users/${organizerId}/onlineMeetings?$filter=startswith(joinWebUrl,'${baseUrl}')`, {
+                            headers: { Authorization: `Bearer ${accessToken}` },
+                            cache: "no-store"
                         });
-
-                        let onlineMeetingId = null;
-
-                        if (exactRes.ok) {
-                            const exactData = await exactRes.json();
-                            if (exactData.value && exactData.value.length > 0) {
-                                onlineMeetingId = exactData.value[0].id;
-                            }
+                        if (swRes.ok) {
+                            const data = await swRes.json();
+                            if (data.value?.length > 0) onlineMeetingId = data.value[0].id;
                         }
+                    }
 
-                        // Essai 2: Startswith (fallback)
-                        if (!onlineMeetingId) {
-                            const baseUrl = joinUrl.split("?")[0];
-                            const baseUrlEsc = baseUrl.replace(/'/g, "''");
-                            const swUrl = `https://graph.microsoft.com/v1.0/users/${organizerId}/onlineMeetings?$filter=startswith(joinWebUrl,'${baseUrlEsc}')`;
-
-                            const swRes = await fetch(swUrl, {
-                                method: "GET",
-                                headers: {
-                                    Authorization: `Bearer ${accessToken}`,
-                                    "Content-Type": "application/json",
-                                },
-                            });
-
-                            if (swRes.ok) {
-                                const swData = await swRes.json();
-                                if (swData.value && swData.value.length > 0) {
-                                    onlineMeetingId = swData.value[0].id;
-                                }
-                            }
-                        }
-
-                        if (!onlineMeetingId) continue;
-
-                        // Récupérer les transcriptions
-                        const transcriptUrl = `https://graph.microsoft.com/v1.0/users/${organizerId}/onlineMeetings/${onlineMeetingId}/transcripts`;
-                        const transcriptRes = await fetch(transcriptUrl, {
-                            method: "GET",
-                            headers: {
-                                Authorization: `Bearer ${accessToken}`,
-                                "Content-Type": "application/json",
-                            },
+                    if (onlineMeetingId) {
+                        // Récupération des transcriptions
+                        const transRes = await fetch(`https://graph.microsoft.com/v1.0/users/${organizerId}/onlineMeetings/${onlineMeetingId}/transcripts`, {
+                            headers: { Authorization: `Bearer ${accessToken}` },
+                            cache: "no-store"
                         });
-
-                        if (transcriptRes.ok) {
-                            const transcriptData = await transcriptRes.json();
-                            if (transcriptData.value && transcriptData.value.length > 0) {
-                                const joinUrlKey = joinUrl.split("?")[0].toLowerCase();
-                                transcriptsByJoinUrl.set(joinUrlKey, transcriptData.value);
-                                console.log(`  ✅ ${meeting.subject}: ${transcriptData.value.length} transcription(s)`);
+                        if (transRes.ok) {
+                            const transData = await transRes.json();
+                            if (transData.value?.length > 0) {
+                                const key = joinUrl.split("?")[0].toLowerCase();
+                                transcriptsByJoinUrl.set(key, transData.value);
                             }
                         }
-                    } catch (transcriptError) {
-                        // Ignorer les erreurs individuelles
                     }
                 }
-            } catch (orgError) {
-                console.log(`  ⚠️  Erreur pour ${orgEmail}`);
+            } catch (e) {
+                console.error(`Erreur organisateur ${orgEmail}`, e);
             }
         }
 
-        console.log(`\n📝 Total: ${transcriptsByJoinUrl.size} réunions avec transcriptions`);
-
-        // Enrichir les réunions avec les infos de transcription
-        const meetingsWithTranscripts = meetings.map((m: any) => {
+        // Construction de la réponse finale
+        const processedMeetings = meetings.map((m: any) => {
             const joinUrl = m.onlineMeeting?.joinUrl || m.onlineMeetingUrl;
-            let hasTranscript = false;
-
-            if (joinUrl) {
-                const joinUrlKey = joinUrl.split("?")[0].toLowerCase();
-                hasTranscript = transcriptsByJoinUrl.has(joinUrlKey);
-            }
+            const key = joinUrl ? joinUrl.split("?")[0].toLowerCase() : null;
+            const hasTranscript = key ? transcriptsByJoinUrl.has(key) : false;
 
             return {
+                ...m,
+                hasTranscript,
+                // On simplifie l'objet pour le front
                 id: m.id,
                 subject: m.subject,
                 start: m.start,
                 end: m.end,
                 organizer: m.organizer,
-                isOnlineMeeting: m.isOnlineMeeting,
-                onlineMeeting: m.onlineMeeting,
-                onlineMeetingId: m.onlineMeetingId,
-                attendees: m.attendees,
-                hasTranscript,
+                isOnlineMeeting: !!joinUrl
             };
         });
 
-        // Filtrer si onlyWithTranscripts est activé
-        const filteredMeetings = onlyWithTranscripts
-            ? meetingsWithTranscripts.filter((m: any) => m.hasTranscript)
-            : meetingsWithTranscripts;
-
-        const teamsMeetings = filteredMeetings.filter((m: any) => m.isOnlineMeeting);
-        const withTranscripts = filteredMeetings.filter((m: any) => m.hasTranscript);
-
-        console.log(`📊 Stats: ${withTranscripts.length} réunions avec transcription sur ${teamsMeetings.length} Teams meetings`);
-        if (onlyWithTranscripts) {
-            console.log(`✂️  Filtre actif: ${filteredMeetings.length} réunions retournées (seulement avec transcriptions)`);
-        }
+        const filtered = onlyWithTranscripts
+            ? processedMeetings.filter((m: { hasTranscript: any; }) => m.hasTranscript)
+            : processedMeetings;
 
         return NextResponse.json({
-            email,
-            count: filteredMeetings.length,
-            teamsMeetingsCount: teamsMeetings.length,
-            withTranscriptCount: withTranscripts.length,
-            meetings: filteredMeetings,
+            count: filtered.length,
+            meetings: filtered,
             debug: {
-                graphUrl,
-                timestamp: new Date().toISOString(),
-                tokenSource: process.env.GRAPH_ACCESS_TOKEN ? "env" : "oauth",
-                dateRange: {
-                    start: startDate,
-                    end: endDate
-                },
-                uniqueOrganizers: meetingsByOrganizer.size,
-                transcriptsFound: transcriptsByJoinUrl.size,
-                onlyWithTranscripts,
-                totalBeforeFilter: meetingsWithTranscripts.length,
-                totalAfterFilter: filteredMeetings.length
-            },
+                range: { startDate, endDate },
+                totalFound: meetings.length,
+                withTranscripts: transcriptsByJoinUrl.size
+            }
         });
+
     } catch (e: any) {
-        console.error("❌ Erreur dans /api/admin/debug-meetings:", e);
-        return NextResponse.json({ error: e?.message ?? "Erreur serveur" }, { status: 500 });
+        return NextResponse.json({ error: e.message }, { status: 500 });
     }
 }
