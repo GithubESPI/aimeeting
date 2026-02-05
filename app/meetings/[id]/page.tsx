@@ -224,7 +224,7 @@ export default function MeetingDetailPage() {
             });
 
             const json = await res.json().catch(() => ({}));
-            if (!res.ok) throw new Error(json?.error ?? "Erreur lors de l'enregistrement");
+            if (!res.ok) throw new Error(json?.error ?? "Erreur lors de l&apos;enregistrement");
 
             setSaveSummarySuccess("✅ Modifications enregistrées.");
             setEditMode(false);
@@ -232,7 +232,7 @@ export default function MeetingDetailPage() {
             // re-sync UI depuis DB
             await fetchMeeting();
         } catch (e: any) {
-            setSaveSummaryError(e?.message ?? "Erreur lors de l'enregistrement");
+            setSaveSummaryError(e?.message ?? "Erreur lors de l&apos;enregistrement");
         } finally {
             setSavingSummary(false);
         }
@@ -513,7 +513,7 @@ export default function MeetingDetailPage() {
             setSendSuccess(`PDF envoyé à ${to.length} participant(s).`);
             setTimeout(() => fetchMeeting(), 1000);
         } catch (e: any) {
-            setSendError(e?.message ?? "Erreur lors de l'envoi");
+            setSendError(e?.message ?? "Erreur lors de l&apos;envoi");
         } finally {
             setSending(false);
         }
@@ -1192,7 +1192,7 @@ export default function MeetingDetailPage() {
                                         <div className="flex items-center gap-2 text-amber-800">
                                             <AlertCircle className="h-5 w-5" />
                                             <p className="text-sm font-medium">
-                                                Seul l'organisateur peut générer une synthèse
+                                                Seul l&apos;organisateur peut générer une synthèse
                                             </p>
                                         </div>
                                     </div>
