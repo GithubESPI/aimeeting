@@ -1,5 +1,5 @@
 // app/api/my-meetings-with-transcripts/route.ts
-// VERSION CORRIGÉE FINALE - Avec logs détaillés et matching amélioré
+// VERSION OPTIMISÉE - Avec parallélisation des appels API
 
 import { NextResponse } from "next/server";
 import { Client } from "@microsoft/microsoft-graph-client";
@@ -7,6 +7,7 @@ import { getDelegatedAccessToken } from "@/lib/auth/getDelegatedToken";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
+export const maxDuration = 60; // 🔧 AJOUT : Timeout de 60 secondes (requis pour Azure/Vercel Pro)
 
 type CleanPerson = { name: string | null; address: string | null };
 
@@ -61,9 +62,7 @@ async function upsertMeetingAndParticipants(args: {
             transcriptSource: transcriptSource ?? "graph",
             hasGraphTranscript,
             hasGraphRecording,
-            // si ton schema a bien ce champ :
             participantsEmails,
-            // optionnel : stocker la liste brute des transcripts
             transcriptRaw: transcripts as any,
         },
         update: {
@@ -161,7 +160,6 @@ function isTeamsMeeting(e: any): boolean {
 
     const isTeams = Object.values(checks).some(v => v);
 
-    // Log les réunions non-Teams en dev pour déboguer
     if (!isTeams && process.env.NODE_ENV === 'development') {
         console.log(`[Filter] ❌ "${e?.subject}" n'est pas une réunion Teams:`, checks);
     }
@@ -220,23 +218,21 @@ function toGraphRelative(nextLink: string) {
 
         // Si c'est un chemin qui commence par /v1.0/ ou /beta/
         if (nextLink.startsWith('/v1.0/')) {
-            return nextLink.substring(6); // Enlever '/v1.0/'
+            return nextLink.substring(6);
         }
         if (nextLink.startsWith('/beta/')) {
-            return nextLink.substring(6); // Enlever '/beta/'
+            return nextLink.substring(6);
         }
         
         // Si c'est déjà un chemin relatif propre
         if (nextLink.startsWith('/')) {
-            return nextLink.substring(1); // Enlever le slash de début
+            return nextLink.substring(1);
         }
 
-        // Sinon, retourner tel quel
         return nextLink;
         
     } catch (err) {
         console.error('[toGraphRelative] Erreur:', err, 'pour URL:', nextLink);
-        // En cas d'erreur, retourner l'original nettoyé au minimum
         return nextLink.replace(/^\/(v1\.0|beta)\//, '').replace(/^\//, '');
     }
 }
@@ -265,29 +261,28 @@ async function getCalendarViewAllForUser(
 
     let pageCount = 1;
     while (page?.["@odata.nextLink"]) {
-    const nextLink = page["@odata.nextLink"];
-    console.log(`[Calendar] Page ${pageCount + 1}, nextLink BRUT: ${nextLink}`);
+        const nextLink = page["@odata.nextLink"];
+        console.log(`[Calendar] Page ${pageCount + 1}, nextLink BRUT: ${nextLink}`);
 
-    const next = toGraphRelative(nextLink);
-    console.log(`[Calendar] nextLink CONVERTI: ${next}`);
-    console.log(`[Calendar] Type de nextLink: ${typeof nextLink}, commence par: ${nextLink.substring(0, 50)}`);
+        const next = toGraphRelative(nextLink);
+        console.log(`[Calendar] nextLink CONVERTI: ${next}`);
 
-    try {
-        page = await client.api(next).get();
-        all.push(...(page?.value ?? []));
-        pageCount++;
-    } catch (err: any) {
-        console.error(`[Calendar] ❌ ERREUR pagination:`, err.message);
-        console.error(`[Calendar] URL qui a causé l'erreur: ${next}`);
-        console.error(`[Calendar] URL originale: ${nextLink}`);
-        throw err; // Relancer pour voir l'erreur complète
+        try {
+            page = await client.api(next).get();
+            all.push(...(page?.value ?? []));
+            pageCount++;
+        } catch (err: any) {
+            console.error(`[Calendar] ❌ ERREUR pagination:`, err.message);
+            console.error(`[Calendar] URL qui a causé l'erreur: ${next}`);
+            console.error(`[Calendar] URL originale: ${nextLink}`);
+            throw err;
+        }
+
+        if (all.length >= 2000) {
+            console.log(`[Calendar] Limite de 2000 événements atteinte`);
+            break;
+        }
     }
-
-    if (all.length >= 2000) {
-        console.log(`[Calendar] Limite de 2000 événements atteinte`);
-        break;
-    }
-}
 
     console.log(`[Calendar] Récupéré ${all.length} événements sur ${pageCount} page(s)`);
     return all;
@@ -300,7 +295,6 @@ function escapeODataString(s: string) {
 async function getOnlineMeetingIdByJoinUrl(appClient: any, organizerId: string, joinUrl: string) {
     console.log(`[OnlineMeetingId] 🔍 Recherche pour joinUrl: ${joinUrl}`);
 
-    // 1) essai exact (le plus fiable si joinUrl complet correspond)
     const joinUrlEsc = escapeODataString(joinUrl);
 
     try {
@@ -317,7 +311,6 @@ async function getOnlineMeetingIdByJoinUrl(appClient: any, organizerId: string, 
         console.log(`[OnlineMeetingId] ⚠️ Erreur match exact: ${e.message}`);
     }
 
-    // 2) fallback : startswith sur l'URL sans querystring
     const base = joinUrl.split("?")[0];
     const baseEsc = escapeODataString(base);
 
@@ -339,6 +332,7 @@ async function getOnlineMeetingIdByJoinUrl(appClient: any, organizerId: string, 
     return null;
 }
 
+// 🔧 FONCTION MODIFIÉE : Parallélisation des appels API
 async function getTranscriptsForMeetings(
     appClient: any,
     organizerEmail: string,
@@ -356,22 +350,22 @@ async function getTranscriptsForMeetings(
 
         const transcriptsByJoinUrl = new Map<string, any[]>();
 
-        for (const event of eventsForOrganizer) {
+        // 🔧 PARALLÉLISATION : Traiter toutes les réunions en même temps
+        const promises = eventsForOrganizer.map(async (event) => {
             const joinUrl = event.onlineMeeting?.joinUrl ?? event.onlineMeetingUrl;
             if (!joinUrl) {
                 console.log(`[Transcripts] ⚠️ Pas de joinUrl pour: ${event.subject}`);
-                continue;
+                return null;
             }
 
             console.log(`[Transcripts] 🔎 Traitement de "${event.subject}"`);
-            console.log(`[Transcripts]    joinUrl: ${joinUrl}`);
 
             try {
                 const onlineMeetingId = await getOnlineMeetingIdByJoinUrl(appClient, organizer.id, joinUrl);
 
                 if (!onlineMeetingId) {
                     console.log(`[Transcripts] ⚠️ Pas d'onlineMeetingId trouvé pour: ${event.subject}`);
-                    continue;
+                    return null;
                 }
 
                 console.log(`[Transcripts] ✓ onlineMeetingId trouvé: ${onlineMeetingId}`);
@@ -383,7 +377,7 @@ async function getTranscriptsForMeetings(
                 const transcripts = transcriptsResult?.value || [];
                 console.log(`[Transcripts] 📝 ${transcripts.length} transcription(s) trouvée(s)`);
 
-                if (transcripts.length === 0) continue;
+                if (transcripts.length === 0) return null;
 
                 const formatted = transcripts.map((t: any) => ({
                     id: t.id,
@@ -396,15 +390,26 @@ async function getTranscriptsForMeetings(
                 }));
 
                 const key = joinUrl.split("?")[0].toLowerCase();
-                transcriptsByJoinUrl.set(key, formatted);
 
                 console.log(`[Transcripts] ✅ ${event.subject}: ${formatted.length} transcript(s) sauvegardé(s) avec clé: ${key}`);
+
+                return { key, formatted };
             } catch (e: any) {
                 console.log(`[Transcripts] ❌ Erreur pour "${event.subject}": ${e?.message ?? e}`);
-                console.log(`[Transcripts]    Status: ${e?.statusCode}`);
-                console.log(`[Transcripts]    joinUrl: ${joinUrl}`);
+                return null;
             }
-        }
+        });
+
+        // 🔧 Attendre que TOUS les appels se terminent en parallèle
+        console.log(`[Transcripts] ⏳ Lancement de ${promises.length} requêtes en parallèle...`);
+        const results = await Promise.all(promises);
+
+        // 🔧 Remplir la Map avec les résultats
+        results.forEach(result => {
+            if (result && result.formatted.length > 0) {
+                transcriptsByJoinUrl.set(result.key, result.formatted);
+            }
+        });
 
         console.log(`[Transcripts] ✅ ${transcriptsByJoinUrl.size} réunions avec transcriptions`);
         return transcriptsByJoinUrl;
@@ -451,7 +456,7 @@ export async function GET(req: Request) {
             const now = new Date();
             endDate = now;
             startDate = new Date(now);
-            startDate.setDate(startDate.getDate() - 365); // 🔧 MODIFIÉ: 365 jours au lieu de 150
+            startDate.setDate(startDate.getDate() - 365);
         }
 
         const startIso = startDate.toISOString();
@@ -469,22 +474,6 @@ export async function GET(req: Request) {
 
         const teamsEvents = events.filter(isTeamsMeeting);
         console.log(`[Filter] ${teamsEvents.length} réunions Teams trouvées sur ${events.length} événements`);
-
-        // 🔧 AJOUTÉ: Log de TOUTES les réunions Teams trouvées
-        console.log(`\n[DEBUG] Liste complète des réunions Teams:`);
-        teamsEvents.forEach((e, i) => {
-            console.log(`  ${i + 1}. "${e.subject}" - ${e.start?.dateTime} - Organisateur: ${e.organizer?.emailAddress?.address}`);
-        });
-
-        // 🔧 AJOUTÉ: Log d'un exemple de réunion Teams pour déboguer
-        console.log(`\n[DEBUG] Exemple de réunion Teams:`);
-        if (teamsEvents.length > 0) {
-            const example = teamsEvents[0];
-            console.log(`  - subject: ${example.subject}`);
-            console.log(`  - joinUrl: ${example.onlineMeeting?.joinUrl ?? example.onlineMeetingUrl}`);
-            console.log(`  - organizer: ${example.organizer?.emailAddress?.address}`);
-            console.log(`  - start: ${example.start?.dateTime}`);
-        }
 
         console.log(`\n[Strategy] 🎯 Récupération des transcriptions`);
 
@@ -539,20 +528,17 @@ export async function GET(req: Request) {
             const accepted = responseStatus === "accepted";
             const declined = responseStatus === "declined";
 
-            // 🔧 MODIFIÉ: Matching amélioré avec plusieurs tentatives
+            // Matching amélioré avec plusieurs tentatives
             let transcripts: any[] = [];
 
-            // 1) Match exact de la base URL
             const joinUrlBase = joinUrl.split('?')[0].toLowerCase();
             transcripts = allTranscripts.get(joinUrlBase) || [];
 
-            // 2) Si pas trouvé, essayer sans le trailing slash
             if (transcripts.length === 0) {
                 const withoutSlash = joinUrlBase.replace(/\/$/, '');
                 transcripts = allTranscripts.get(withoutSlash) || [];
             }
 
-            // 3) Si pas trouvé, essayer avec le trailing slash
             if (transcripts.length === 0) {
                 const withSlash = joinUrlBase.endsWith('/') ? joinUrlBase : joinUrlBase + '/';
                 transcripts = allTranscripts.get(withSlash) || [];
@@ -654,7 +640,8 @@ export async function GET(req: Request) {
                 totalEvents: events.length,
                 teamsEvents: teamsEvents.length,
                 uniqueOrganizers: meetingsByOrganizer.size,
-                transcriptsFound: allTranscripts.size
+                transcriptsFound: allTranscripts.size,
+                durationMs: duration
             },
             meetings: meetingsWithTranscripts
         });

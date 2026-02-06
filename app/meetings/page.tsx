@@ -1,5 +1,5 @@
 // app/meetings/page.tsx
-// ✅ Version finale avec style ESPI + formatage des status
+// ✅ Version optimisée avec timeout + indicateur de progression
 
 "use client";
 
@@ -75,7 +75,7 @@ function formatTime(iso: string | null) {
     return new Intl.DateTimeFormat("fr-FR", {
         hour: "2-digit",
         minute: "2-digit",
-        timeZone: "UTC" // ✅ AJOUTEZ CETTE LIGNE
+        timeZone: "UTC"
     }).format(d);
 }
 
@@ -103,6 +103,7 @@ export default function MeetingsPage() {
     const [syncing, setSyncing] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
     const [syncSuccess, setSyncSuccess] = React.useState<string | null>(null);
+    const [syncProgress, setSyncProgress] = React.useState<string | null>(null); // 🔧 AJOUT
     const [query, setQuery] = React.useState("");
     const [data, setData] = React.useState<ApiResponse | null>(null);
 
@@ -135,19 +136,34 @@ export default function MeetingsPage() {
         }
     }
 
-    // ✅ Bouton Actualiser : appelle my-meetings-with-transcripts avec persist=true
+    // 🔧 FONCTION MODIFIÉE : Ajout timeout + indicateur de progression
     async function syncMeetings() {
         setSyncing(true);
         setError(null);
         setSyncSuccess(null);
+        setSyncProgress("🔍 Recherche des réunions Teams...");
 
         try {
             console.log("🔄 Synchronisation depuis Microsoft Graph...");
 
+            // 🔧 Timeout de 60 secondes
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+                controller.abort();
+                console.error("⏱️ Timeout: La synchronisation a pris plus de 60 secondes");
+            }, 60000);
+
+            setSyncProgress("📝 Récupération des transcriptions...");
+
             const res = await fetch("/api/my-meetings-with-transcripts?persist=true&onlyWithTranscripts=true", {
                 method: "GET",
                 cache: "no-store",
+                signal: controller.signal,
             });
+
+            clearTimeout(timeoutId);
+
+            setSyncProgress("💾 Enregistrement en base de données...");
 
             if (!res.ok) {
                 const json = await res.json().catch(() => ({}));
@@ -159,11 +175,20 @@ export default function MeetingsPage() {
             console.log("✅ Synchronisation terminée:", json);
 
             setSyncSuccess(`✅ ${json.count} réunions synchronisées`);
+            setSyncProgress(null);
 
             // Recharger les données depuis la DB
             setTimeout(() => fetchMeetings(), 1000);
         } catch (e: any) {
-            setError(e?.message ?? "Erreur lors de la synchronisation");
+            setSyncProgress(null);
+            
+            if (e.name === 'AbortError') {
+                setError("⏱️ La synchronisation a pris trop de temps (timeout 60s). Veuillez réessayer.");
+            } else {
+                setError(e?.message ?? "Erreur lors de la synchronisation");
+            }
+            
+            console.error("❌ Erreur de synchronisation:", e);
         } finally {
             setSyncing(false);
         }
@@ -287,6 +312,18 @@ export default function MeetingsPage() {
                         </Card>
                     </div>
                 </div>
+
+                {/* 🔧 AJOUT : Progress indicator */}
+                {syncProgress && (
+                    <Card className="mb-6 border-blue-500 bg-blue-50 shadow-sm">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center gap-2">
+                                <RefreshCw className="h-5 w-5 text-blue-500 animate-spin" />
+                                <p className="text-sm text-blue-700 font-medium">{syncProgress}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Success message */}
                 {syncSuccess && (
